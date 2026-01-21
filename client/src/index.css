@@ -123,6 +123,34 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
 }
 
+/* Floating Input Bar - Gemini Style */
+.floating-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #2F2F2F;
+  border-radius: 28px;
+  padding: 4px 8px 4px 4px;
+  min-height: 48px;
+  max-width: 100%;
+  transition: all 150ms ease;
+}
+
+.floating-input-bar:focus-within {
+  background: #363636;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.light .floating-input-bar {
+  background: #F0F0F0;
+}
+
+.light .floating-input-bar:focus-within {
+  background: #E8E8E8;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+
 /* Custom Scrollbar */
 ::selection {
   background: rgba(34, 211, 238, 0.18);

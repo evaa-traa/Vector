@@ -8,6 +8,8 @@ import {
   Sparkles,
   Globe,
   ArrowRight,
+  ArrowUp,
+  Plus,
   Menu,
   Copy,
   RefreshCw,
@@ -497,19 +499,15 @@ export default function ChatArea({
               Where knowledge begins
             </h1>
 
-            <div className="w-full max-w-2xl px-2">
-              <div className="relative group">
-                <div className="refined-input-container">
-                  <SearchInput
-                    value={message}
-                    onChange={onMessageChange}
-                    onSend={onSend}
-                    disabled={isStreaming}
-                    isHero={true}
-                    features={features}
-                  />
-                </div>
-              </div>
+            <div className="w-full max-w-xl px-4">
+              <SearchInput
+                value={message}
+                onChange={onMessageChange}
+                onSend={onSend}
+                disabled={isStreaming}
+                isHero={true}
+                features={features}
+              />
 
               <div className="mt-6 md:mt-8 flex flex-wrap justify-center gap-2">
                 {[
@@ -562,17 +560,15 @@ export default function ChatArea({
 
       {/* Footer Input Area */}
       {!isEmpty && (
-        <div className="p-3 md:p-6 bg-card z-20 border-t border-border/20">
-          <div className="mx-auto max-w-3xl relative">
-            <div className="refined-input-container">
-              <SearchInput
-                value={message}
-                onChange={onMessageChange}
-                onSend={onSend}
-                disabled={isStreaming}
-                features={features}
-              />
-            </div>
+        <div className="p-3 md:p-4 bg-card/80 backdrop-blur-sm z-20">
+          <div className="mx-auto max-w-xl">
+            <SearchInput
+              value={message}
+              onChange={onMessageChange}
+              onSend={onSend}
+              disabled={isStreaming}
+              features={features}
+            />
           </div>
         </div>
       )}
@@ -588,8 +584,8 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
   const [selectedFiles, setSelectedFiles] = React.useState([]);
   const mediaRecorderRef = React.useRef(null);
   const audioChunksRef = React.useRef([]);
-  const maxTextareaHeight = isHero ? 120 : 160;
-  const minTextareaHeight = isHero ? 48 : 44;
+  const maxTextareaHeight = isHero ? 100 : 120;
+  const minTextareaHeight = 44;
 
   useLayoutEffect(() => {
     const el = textareaRef.current;
@@ -676,17 +672,18 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
 
   return (
     <div className="flex flex-col w-full">
+      {/* File attachments preview */}
       {selectedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-3 pt-2 md:px-4 md:pt-3">
+        <div className="flex flex-wrap gap-2 mb-2">
           {selectedFiles.map((file, index) => (
             <div
               key={index}
-              className="flex items-center gap-2 bg-foreground/10 rounded-lg px-2 py-1 text-xs text-white/80"
+              className="flex items-center gap-2 bg-[#3A3A3A] rounded-full px-3 py-1 text-xs text-white/80"
             >
               <span className="truncate max-w-[100px] md:max-w-[150px]">{file.name}</span>
               <button
                 onClick={() => removeFile(index)}
-                className="p-0.5 hover:bg-foreground/10 rounded"
+                className="p-0.5 hover:bg-white/10 rounded-full"
                 aria-label={`Remove ${file.name}`}
               >
                 <X size={12} />
@@ -696,85 +693,83 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
         </div>
       )}
 
-      <div className="flex items-center w-full px-3 md:px-4">
-        {features.uploads && (
-          <>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              className="hidden"
-              multiple
-              accept="image/*,.pdf,.doc,.docx,.txt,.csv,.json"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled}
-              className={cn(
-                "p-2 rounded-lg transition-colors duration-200 flex items-center justify-center focus-visible:outline-none",
-                disabled
-                  ? "text-muted-foreground/50 cursor-not-allowed"
-                  : "text-muted-foreground hover:text-white hover:bg-foreground/5"
-              )}
-              aria-label="Attach file"
-              title="Attach file"
-            >
-              <Paperclip size={18} />
-            </button>
-          </>
-        )}
+      {/* Main floating input bar */}
+      <div className="floating-input-bar">
+        {/* Plus/Attach button */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileSelect}
+          className="hidden"
+          multiple
+          accept="image/*,.pdf,.doc,.docx,.txt,.csv,.json"
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled}
+          className={cn(
+            "w-9 h-9 rounded-full flex items-center justify-center transition-colors shrink-0",
+            disabled
+              ? "text-muted-foreground/40 cursor-not-allowed"
+              : "text-muted-foreground hover:text-white hover:bg-white/5"
+          )}
+          aria-label="Attach"
+          title="Attach file"
+        >
+          <Plus size={20} strokeWidth={1.5} />
+        </button>
 
-        {features.stt && (
-          <button
-            onClick={handleMicClick}
-            disabled={disabled}
-            className={cn(
-              "p-2 rounded-lg transition-colors duration-200 flex items-center justify-center focus-visible:outline-none",
-              isRecording
-                ? "text-red-500 bg-red-500/10 animate-pulse"
-                : disabled
-                  ? "text-muted-foreground/50 cursor-not-allowed"
-                  : "text-muted-foreground hover:text-white hover:bg-foreground/5"
-            )}
-            aria-label={isRecording ? "Stop recording" : "Start voice input"}
-            title={isRecording ? "Stop recording" : "Voice input"}
-          >
-            <Mic size={18} />
-          </button>
-        )}
-
+        {/* Text input */}
         <textarea
           ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onScroll={handleTextareaScroll}
-          placeholder={isHero ? "Ask anything..." : "Ask follow-up..."}
-          aria-label={isHero ? "Ask anything" : "Message"}
-          className={cn(
-            "chat-input flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-white resize-none custom-scrollbar",
-            isHero
-              ? "py-3 px-2 text-base md:text-lg font-medium"
-              : "py-3 px-2 text-sm leading-5"
-          )}
+          placeholder="Ask anything"
+          aria-label="Ask anything"
+          className="flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-white resize-none custom-scrollbar py-2.5 px-1 text-[15px] leading-6"
           rows={1}
           style={{ minHeight: `${minTextareaHeight}px`, maxHeight: `${maxTextareaHeight}px` }}
         />
-        <div className="flex items-center gap-1 pr-1">
+
+        {/* Right side buttons */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          {/* Mic button */}
+          <button
+            onClick={handleMicClick}
+            disabled={disabled}
+            className={cn(
+              "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
+              isRecording
+                ? "text-red-500 bg-red-500/10 animate-pulse"
+                : disabled
+                  ? "text-muted-foreground/40 cursor-not-allowed"
+                  : "text-muted-foreground hover:text-white hover:bg-white/5"
+            )}
+            aria-label={isRecording ? "Stop recording" : "Voice input"}
+            title={isRecording ? "Stop recording" : "Voice input"}
+          >
+            <Mic size={18} />
+          </button>
+
+          {/* Send button */}
           <button
             onClick={handleSend}
             disabled={(!value.trim() && selectedFiles.length === 0) || disabled}
             className={cn(
-              "p-2 rounded-lg transition-colors duration-[120ms] flex items-center justify-center focus-visible:outline-none",
-              value.trim() && !disabled
-                ? "text-primary hover:bg-foreground/5"
-                : "text-muted-foreground/40 cursor-not-allowed"
+              "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
+              (value.trim() || selectedFiles.length > 0) && !disabled
+                ? "bg-[#4A4A4A] text-white hover:bg-[#5A5A5A]"
+                : "bg-[#3A3A3A] text-muted-foreground/40 cursor-not-allowed"
             )}
+            aria-label="Send"
+            title="Send message"
           >
             {disabled ? (
-              <div className="w-5 h-5 border-2 border-foreground/20 border-t-foreground/60 rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-muted-foreground/20 border-t-muted-foreground/60 rounded-full animate-spin" />
             ) : (
-              <ArrowRight size={20} />
+              <ArrowUp size={18} strokeWidth={2} />
             )}
           </button>
         </div>
@@ -782,6 +777,7 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
     </div>
   );
 }
+
 
 function ActionBtn({ icon, label, onClick }) {
   return (
