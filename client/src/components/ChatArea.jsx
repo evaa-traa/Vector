@@ -286,17 +286,17 @@ const MessageRow = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "flex w-full",
+        "flex w-full group",
         msg.role === "user" ? "justify-end" : "justify-start"
       )}
     >
       <div className={cn(
-        "flex flex-col gap-2 min-w-0 w-full",
+        "flex flex-col gap-2.5 min-w-0",
         msg.role === "user"
-          ? "items-end max-w-[95%] md:max-w-[85%]"
-          : "items-start max-w-full md:max-w-[90%]"
+          ? "items-end max-w-[85%] md:max-w-[75%]"
+          : "items-start max-w-full"
       )}>
-        <div className="font-medium text-sm text-muted-foreground mb-1">
+        <div className="font-semibold text-[13px] text-white/90 mb-0.5 px-0.5">
           {msg.role === "user" ? "You" : "Vector"}
         </div>
 
@@ -308,7 +308,7 @@ const MessageRow = React.memo(({
               .slice(-4).map((state) => (
                 <span
                   key={state}
-                  className="inline-flex items-center rounded-full border border-border bg-foreground/5 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                  className="inline-flex items-center rounded-full border border-border bg-foreground/5 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
                 >
                   {activityLabels?.[state] || state}
                 </span>
@@ -316,21 +316,23 @@ const MessageRow = React.memo(({
           </div>
         )}
 
-        <div className={cn("text-base text-white w-full", msg.role === "user" && "text-right")}>
+        <div className={cn("text-[15px] leading-[1.6] w-full", msg.role === "user" && "text-right")}>
           {msg.role === "assistant" ? (
-            <MarkdownContent content={msg.content} />
+            <div className="text-white/95">
+              <MarkdownContent content={msg.content} />
+            </div>
           ) : (
-            <div className="bg-[#2A2A2A] rounded-xl px-4 py-3 text-white inline-block max-w-full break-words">
+            <div className="bg-[#2F2F2F] rounded-2xl px-4 py-3 text-white inline-block max-w-full break-words">
               {msg.content}
             </div>
           )}
           {isStreaming && isLastAssistant && msg.role === "assistant" && (
-            <span className="inline-block w-2 h-4 bg-muted-foreground/70 animate-pulse ml-1 align-bottom rounded-sm" />
+            <span className="inline-block w-1.5 h-5 bg-white/70 animate-pulse ml-0.5 align-middle rounded-sm" />
           )}
         </div>
 
         {msg.role === "assistant" && msg.content && !isStreaming && (
-          <div className="mt-3 w-full">
+          <div className="mt-2 w-full">
             {sources.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-2 mb-3 custom-scrollbar">
                 {sources.map((item, idx) => (
@@ -339,24 +341,25 @@ const MessageRow = React.memo(({
                     href={item}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1E1E1E] border border-border/50 text-xs text-muted-foreground hover:text-white transition-colors"
+                    className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg bg-[#2A2A2A] border border-border/40 text-xs text-muted-foreground hover:text-white hover:border-border/60 transition-all"
                   >
-                    <Globe size={12} />
+                    <Globe size={13} />
                     <span className="truncate max-w-[120px]">{new URL(item).hostname.replace('www.', '')}</span>
                   </a>
                 ))}
               </div>
             )}
 
-            <div className="flex items-center gap-1 w-full rounded-lg bg-[#1E1E1E] border border-border/30 px-2 py-1.5">
-              <ActionBtn
-                icon={copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                label={copied ? "Copied" : "Copy"}
+            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <button
                 onClick={handleCopy}
-              />
-              <ActionBtn
-                icon={<RefreshCw size={14} />}
-                label="Retry"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-white hover:bg-white/5 transition-all"
+                aria-label={copied ? "Copied" : "Copy"}
+              >
+                {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
+              </button>
+              <button
                 onClick={() => {
                   const lastUserMsg = [...(activeSession?.messages || [])]
                     .slice(0, index)
@@ -367,7 +370,12 @@ const MessageRow = React.memo(({
                     setTimeout(() => onSend(), 50);
                   }
                 }}
-              />
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-white hover:bg-white/5 transition-all"
+                aria-label="Retry"
+              >
+                <RefreshCw size={14} />
+                <span className="hidden sm:inline">Retry</span>
+              </button>
             </div>
           </div>
         )}
@@ -531,7 +539,7 @@ export default function ChatArea({
           </div>
         ) : (
           /* Chat Messages */
-          <div className="mx-auto max-w-3xl w-full px-3 md:px-4 py-6 md:py-10 space-y-6 md:space-y-8">
+          <div className="mx-auto max-w-3xl w-full px-3 md:px-6 py-8 md:py-12 space-y-8 md:space-y-10">
             {activeSession?.messages.map((msg, index) => {
               const isLastAssistant =
                 msg.role === "assistant" &&
