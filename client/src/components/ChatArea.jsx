@@ -306,26 +306,16 @@ const MessageRow = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "flex gap-3 md:gap-4",
-        msg.role === "user" ? "flex-row-reverse" : "flex-row"
+        "flex",
+        msg.role === "user" ? "justify-end" : "justify-start"
       )}
     >
-      {/* Avatar */}
-      <div className={cn(
-        "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border",
-        msg.role === "user"
-          ? "bg-foreground/5 border-border text-foreground"
-          : "bg-foreground/5 border-border text-muted-foreground"
-      )}>
-        {msg.role === "user" ? <div className="text-xs font-bold">You</div> : <Sparkles size={16} />}
-      </div>
-
       {/* Message Content */}
       <div className={cn(
         "flex flex-col gap-2 min-w-0",
         msg.role === "user"
           ? "items-end max-w-[88%] md:max-w-[85%]"
-          : "items-start w-full"
+          : "items-start max-w-[88%] md:max-w-[85%]"
       )}>
         <div className="font-medium text-sm text-muted-foreground mb-1">
           {msg.role === "user" ? "You" : "Vector"}
