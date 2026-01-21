@@ -16,6 +16,7 @@ export default defineConfig({
   },
   build: {
     outDir: path.resolve(__dirname, "../server/public"),
-    emptyOutDir: true
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 1000 // Suppress warning for chunks up to 1MB
   }
 });
