@@ -13,7 +13,8 @@ import {
     X,
     Menu,
     ChevronLeft,
-    Save
+    Save,
+    Upload
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -136,25 +137,27 @@ export default function LabsArea({
         setActiveProjectId,
         isProcessing,
         handleNewProject,
+        handleImportDocument,
         handleDeleteProject,
         handleRenameProject,
         handleUpdateDocument,
         handleAIEdit,
         forceSync
-    } = useLabsProjects();
+    } = useLabsProjects(selectedModelId);
 
     const [instruction, setInstruction] = useState("");
     const [error, setError] = useState("");
     const [showProjectList, setShowProjectList] = useState(true);
-    const [saveStatus, setSaveStatus] = useState("saved"); // "saved" | "saving" | "unsaved"
+    const [saveStatus, setSaveStatus] = useState("saved");
+    const [isImporting, setIsImporting] = useState(false);
     const instructionRef = useRef(null);
+    const importInputRef = useRef(null);
 
     // Handle document changes with save status
     const handleDocumentChange = useCallback((newContent) => {
         setSaveStatus("unsaved");
         handleUpdateDocument(newContent);
 
-        // Debounce the "saved" status
         setTimeout(() => {
             setSaveStatus("saved");
         }, 500);
@@ -167,6 +170,26 @@ export default function LabsArea({
         setTimeout(() => {
             setSaveStatus("saved");
         }, 300);
+    };
+
+    // Handle file import
+    const handleFileImport = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsImporting(true);
+        setError("");
+
+        try {
+            await handleImportDocument(file);
+        } catch (err) {
+            setError("Failed to import document: " + (err.message || "Unknown error"));
+        } finally {
+            setIsImporting(false);
+            if (importInputRef.current) {
+                importInputRef.current.value = "";
+            }
+        }
     };
 
     // Handle AI instruction submission
@@ -227,7 +250,6 @@ export default function LabsArea({
                 </button>
                 <span className="font-semibold text-sm ml-2 text-white">Labs</span>
 
-                {/* Mobile project toggle */}
                 <button
                     onClick={() => setShowProjectList(!showProjectList)}
                     className="ml-auto p-2 text-muted-foreground hover:text-white rounded-lg md:hidden"
@@ -248,15 +270,37 @@ export default function LabsArea({
                             className="h-full border-r border-border bg-background flex flex-col overflow-hidden"
                         >
                             {/* Sidebar Header */}
-                            <div className="p-3 border-b border-border flex items-center justify-between">
+                            <div className="p-3 border-b border-border flex items-center justify-between gap-2">
                                 <h2 className="font-semibold text-white text-sm">Projects</h2>
-                                <button
-                                    onClick={() => handleNewProject()}
-                                    className="p-1.5 hover:bg-foreground/10 rounded-lg text-muted-foreground hover:text-white transition-colors"
-                                    title="New Project"
-                                >
-                                    <Plus size={16} />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                    {/* Import Button */}
+                                    <input
+                                        type="file"
+                                        ref={importInputRef}
+                                        onChange={handleFileImport}
+                                        accept=".txt,.md,.docx"
+                                        className="hidden"
+                                    />
+                                    <button
+                                        onClick={() => importInputRef.current?.click()}
+                                        disabled={isImporting}
+                                        className="p-1.5 hover:bg-foreground/10 rounded-lg text-muted-foreground hover:text-white transition-colors"
+                                        title="Import Document"
+                                    >
+                                        {isImporting ? (
+                                            <Loader2 size={16} className="animate-spin" />
+                                        ) : (
+                                            <Upload size={16} />
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={() => handleNewProject()}
+                                        className="p-1.5 hover:bg-foreground/10 rounded-lg text-muted-foreground hover:text-white transition-colors"
+                                        title="New Project"
+                                    >
+                                        <Plus size={16} />
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Project List */}
@@ -304,7 +348,6 @@ export default function LabsArea({
                                         {activeProject.name}
                                     </h1>
 
-                                    {/* Save Status Indicator */}
                                     <span className={cn(
                                         "text-xs px-2 py-0.5 rounded-full shrink-0",
                                         saveStatus === "saved" && "text-green-400/70 bg-green-400/10",
@@ -318,7 +361,6 @@ export default function LabsArea({
                                 </div>
 
                                 <div className="flex items-center gap-2 shrink-0">
-                                    {/* Save Button */}
                                     <button
                                         onClick={handleManualSave}
                                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-foreground/5 text-muted-foreground hover:text-white hover:bg-foreground/10 transition-colors"
@@ -328,7 +370,6 @@ export default function LabsArea({
                                         <span className="hidden sm:inline">Save</span>
                                     </button>
 
-                                    {/* Export Button */}
                                     <button
                                         onClick={handleExport}
                                         disabled={!activeProject.document}
@@ -409,13 +450,22 @@ export default function LabsArea({
                                     <FileText className="text-muted-foreground w-7 h-7" />
                                 </div>
                                 <h2 className="text-lg font-semibold text-white mb-2">No Project Selected</h2>
-                                <p className="text-muted-foreground text-sm mb-4">Create a new project to get started</p>
-                                <button
-                                    onClick={() => handleNewProject()}
-                                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-                                >
-                                    Create Project
-                                </button>
+                                <p className="text-muted-foreground text-sm mb-4">Create a new project or import a document</p>
+                                <div className="flex items-center justify-center gap-2">
+                                    <button
+                                        onClick={() => handleNewProject()}
+                                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                                    >
+                                        Create Project
+                                    </button>
+                                    <button
+                                        onClick={() => importInputRef.current?.click()}
+                                        className="px-4 py-2 bg-foreground/10 text-white rounded-lg text-sm font-medium hover:bg-foreground/15 transition-colors"
+                                    >
+                                        <Upload size={14} className="inline mr-1.5" />
+                                        Import
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}

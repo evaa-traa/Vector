@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 
-const STORAGE_KEY = "labs_projects";
+const STORAGE_KEY_PREFIX = "labs_projects_";
 
 /**
- * Load projects from localStorage
+ * Load projects from localStorage for a specific model
  */
-function loadProjects() {
-  const raw = localStorage.getItem(STORAGE_KEY);
+function loadProjects(modelId) {
+  if (!modelId) return [];
+  const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${modelId}`);
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
@@ -18,11 +19,12 @@ function loadProjects() {
 }
 
 /**
- * Save projects to localStorage
+ * Save projects to localStorage for a specific model
  */
-function saveProjects(projects) {
+function saveProjects(modelId, projects) {
+  if (!modelId) return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}${modelId}`, JSON.stringify(projects));
   } catch (error) {
     console.error("[Labs] Failed to save projects:", error);
   }
@@ -31,32 +33,51 @@ function saveProjects(projects) {
 /**
  * Create a new project with empty document
  */
-function createProject(name = "Untitled Project") {
+function createProject(name = "Untitled Project", document = "") {
   return {
     id: crypto.randomUUID(),
     name,
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    document: ""
+    document
   };
 }
 
 /**
  * Hook for managing Labs projects with localStorage persistence.
- * Provides CRUD operations and auto-save functionality.
+ * Projects are stored per-model, just like chat history.
+ * @param {string} modelId - The currently selected model ID
  */
-export function useLabsProjects() {
-  const [projects, setProjects] = useState(() => loadProjects());
+export function useLabsProjects(modelId) {
+  const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Load projects when modelId changes
+  useEffect(() => {
+    if (!modelId) {
+      setProjects([]);
+      setActiveProjectId("");
+      return;
+    }
+    const loaded = loadProjects(modelId);
+    setProjects(loaded);
+    if (loaded.length > 0) {
+      setActiveProjectId(loaded[0].id);
+    } else {
+      setActiveProjectId("");
+    }
+  }, [modelId]);
+
   // Persist projects to localStorage on change
   useEffect(() => {
-    saveProjects(projects);
-  }, [projects]);
+    if (!modelId) return;
+    saveProjects(modelId, projects);
+  }, [modelId, projects]);
 
   // Auto-select first project or create one if none exist
   useEffect(() => {
+    if (!modelId) return;
     if (projects.length === 0) {
       const fresh = createProject();
       setProjects([fresh]);
@@ -64,7 +85,7 @@ export function useLabsProjects() {
     } else if (!activeProjectId || !projects.find(p => p.id === activeProjectId)) {
       setActiveProjectId(projects[0].id);
     }
-  }, [projects, activeProjectId]);
+  }, [projects, activeProjectId, modelId]);
 
   // Get active project
   const activeProject = useMemo(() => {
@@ -79,12 +100,40 @@ export function useLabsProjects() {
   /**
    * Create a new project and make it active
    */
-  const handleNewProject = useCallback((name = "Untitled Project") => {
-    const fresh = createProject(name);
+  const handleNewProject = useCallback((name = "Untitled Project", document = "") => {
+    const fresh = createProject(name, document);
     setProjects(prev => [fresh, ...prev]);
     setActiveProjectId(fresh.id);
     return fresh;
   }, []);
+
+  /**
+   * Import a document file and create a project from it
+   */
+  const handleImportDocument = useCallback(async (file) => {
+    if (!file) return null;
+
+    const name = file.name.replace(/\.(txt|md|docx)$/i, "") || "Imported Document";
+    let document = "";
+
+    try {
+      if (file.name.endsWith(".docx")) {
+        // Use mammoth for .docx files
+        const mammoth = await import("mammoth");
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        document = result.value || "";
+      } else {
+        // Plain text for .txt and .md files
+        document = await file.text();
+      }
+
+      return handleNewProject(name, document);
+    } catch (error) {
+      console.error("[Labs] Failed to import document:", error);
+      throw error;
+    }
+  }, [handleNewProject]);
 
   /**
    * Delete a project by ID
@@ -127,7 +176,7 @@ export function useLabsProjects() {
    * Send instruction to AI to generate or edit document
    * Returns the updated document content
    */
-  const handleAIEdit = useCallback(async (instruction, modelId) => {
+  const handleAIEdit = useCallback(async (instruction, modelIdForAI) => {
     if (!activeProject) return null;
 
     setIsProcessing(true);
@@ -139,7 +188,7 @@ export function useLabsProjects() {
         body: JSON.stringify({
           document: activeProject.document,
           instruction,
-          modelId
+          modelId: modelIdForAI
         })
       });
 
@@ -201,8 +250,10 @@ export function useLabsProjects() {
    * Force sync projects to localStorage (manual save)
    */
   const forceSync = useCallback(() => {
-    saveProjects(projects);
-  }, [projects]);
+    if (modelId) {
+      saveProjects(modelId, projects);
+    }
+  }, [modelId, projects]);
 
   return {
     projects: projectList,
@@ -211,6 +262,7 @@ export function useLabsProjects() {
     setActiveProjectId,
     isProcessing,
     handleNewProject,
+    handleImportDocument,
     handleDeleteProject,
     handleRenameProject,
     handleUpdateDocument,
