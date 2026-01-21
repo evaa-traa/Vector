@@ -422,11 +422,26 @@ export function useChatSession() {
         }
       });
 
+      // Force React to update on each chunk by using a render trigger
+      let renderCounter = 0;
+
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        parser.feed(decoder.decode(value, { stream: true }));
+
+        const chunk = decoder.decode(value, { stream: true });
+        parser.feed(chunk);
+
+        // Force a re-render every few chunks to show streaming
+        renderCounter++;
+        if (renderCounter % 3 === 0) {
+          // Trigger a state update to force re-render
+          setSessions(prev => [...prev]);
+        }
       }
+
+      // Final update to ensure everything is saved
+      setSessions(prev => [...prev]);
     } catch (error) {
       // Clear timeout on error
       if (timeoutRef.current) {

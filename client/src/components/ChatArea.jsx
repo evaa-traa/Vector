@@ -241,7 +241,7 @@ function extractSources(text) {
   return urls;
 }
 
-// Memoized Message Row Component - FIXED: Only show streaming status for the actual streaming message
+// Memoized Message Row Component
 const MessageRow = React.memo(({
   msg,
   index,
@@ -258,7 +258,7 @@ const MessageRow = React.memo(({
   const hasActivities = Array.isArray(msg.activities) && msg.activities.length > 0;
   const [copied, setCopied] = React.useState(false);
 
-  // FIXED: Only show phase animation for the LAST assistant message AND when streaming
+  // Only show phase animation for the LAST assistant message AND when streaming
   let phase = null;
   if (isStreaming && isLastAssistant && msg.role === "assistant") {
     if (!hasActivities) {
@@ -288,7 +288,6 @@ const MessageRow = React.memo(({
         msg.role === "user" ? "justify-end" : "justify-start"
       )}
     >
-      {/* Message Content */}
       <div className={cn(
         "flex flex-col gap-2 min-w-0 w-full",
         msg.role === "user"
@@ -299,7 +298,6 @@ const MessageRow = React.memo(({
           {msg.role === "user" ? "You" : "Vector"}
         </div>
 
-        {/* Status at TOP of message (Only visible during streaming for the actual streaming message) */}
         {phase && (
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <StreamingStatus phase={phase} />
@@ -329,10 +327,8 @@ const MessageRow = React.memo(({
           )}
         </div>
 
-        {/* Assistant Actions - FIXED: Full width, removed thumbs down */}
         {msg.role === "assistant" && msg.content && !isStreaming && (
           <div className="mt-3 w-full">
-            {/* Sources */}
             {sources.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-2 mb-3 custom-scrollbar">
                 {sources.map((item, idx) => (
@@ -350,7 +346,6 @@ const MessageRow = React.memo(({
               </div>
             )}
 
-            {/* Action Buttons - Full width bar */}
             <div className="flex items-center gap-1 w-full rounded-lg bg-[#1E1E1E] border border-border/30 px-2 py-1.5">
               <ActionBtn
                 icon={copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
@@ -393,6 +388,8 @@ export default function ChatArea({
 }) {
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const userScrolledRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -403,6 +400,18 @@ export default function ChatArea({
       el.classList.add("scrolling");
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => el.classList.remove("scrolling"), 150);
+
+      // Detect if user manually scrolled up
+      const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+      const scrolledUp = el.scrollTop < lastScrollTopRef.current;
+
+      if (scrolledUp && !isAtBottom) {
+        userScrolledRef.current = true;
+      } else if (isAtBottom) {
+        userScrolledRef.current = false;
+      }
+
+      lastScrollTopRef.current = el.scrollTop;
     };
 
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -429,33 +438,34 @@ export default function ChatArea({
     }
   }, [isStreaming]);
 
-  // Auto-scroll to bottom
+  // Smart auto-scroll: only scroll if user hasn't manually scrolled up
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const startTop = el.scrollTop;
-    const targetTop = el.scrollHeight - el.clientHeight;
-    const delta = targetTop - startTop;
-    if (Math.abs(delta) < 1) return;
+    // Don't auto-scroll if user has scrolled up
+    if (userScrolledRef.current) return;
 
-    const durationMs = 250;
-    const startTime = performance.now();
-    let rafId = null;
-
-    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
-
-    const tick = (now) => {
-      const t = Math.min(1, (now - startTime) / durationMs);
-      el.scrollTop = startTop + delta * easeOutCubic(t);
-      if (t < 1) rafId = requestAnimationFrame(tick);
+    // Smooth scroll to bottom
+    const scrollToBottom = () => {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: 'smooth'
+      });
     };
 
-    rafId = requestAnimationFrame(tick);
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [activeSession?.messages?.length, isStreaming, showSearching]);
+    // Use requestAnimationFrame for smoother scrolling during streaming
+    const rafId = requestAnimationFrame(scrollToBottom);
+
+    return () => cancelAnimationFrame(rafId);
+  }, [activeSession?.messages, isStreaming]);
+
+  // Reset user scroll flag when new message starts
+  useEffect(() => {
+    if (isStreaming) {
+      userScrolledRef.current = false;
+    }
+  }, [isStreaming]);
 
   const isEmpty = !activeSession?.messages || activeSession.messages.length === 0;
 
@@ -476,7 +486,7 @@ export default function ChatArea({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar scroll-smooth bg-card" ref={scrollRef}>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-card" ref={scrollRef}>
         {isEmpty ? (
           /* Empty State / Hero Section */
           <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
@@ -489,7 +499,7 @@ export default function ChatArea({
 
             <div className="w-full max-w-2xl px-2">
               <div className="relative group">
-                <div className="relative bg-[var(--input-surface)] border border-[var(--input-border)] rounded-xl transition-[border-color,background-color] duration-[120ms] ease-out focus-within:bg-[var(--input-surface-focus)] focus-within:border-[var(--input-border-focus)]">
+                <div className="refined-input-container">
                   <SearchInput
                     value={message}
                     onChange={onMessageChange}
@@ -545,8 +555,6 @@ export default function ChatArea({
               );
             })}
 
-            {/* REMOVED: Related/Follow-ups section */}
-
             <div ref={messagesEndRef} className="h-4" />
           </div>
         )}
@@ -556,7 +564,7 @@ export default function ChatArea({
       {!isEmpty && (
         <div className="p-3 md:p-6 bg-card z-20 border-t border-border/20">
           <div className="mx-auto max-w-3xl relative">
-            <div className="relative bg-[var(--input-surface)] border border-[var(--input-border)] rounded-xl transition-[border-color,background-color] duration-[120ms] ease-out focus-within:bg-[var(--input-surface-focus)] focus-within:border-[var(--input-border-focus)]">
+            <div className="refined-input-container">
               <SearchInput
                 value={message}
                 onChange={onMessageChange}
@@ -668,7 +676,6 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
 
   return (
     <div className="flex flex-col w-full">
-      {/* Selected files preview */}
       {selectedFiles.length > 0 && (
         <div className="flex flex-wrap gap-2 px-3 pt-2 md:px-4 md:pt-3">
           {selectedFiles.map((file, index) => (
@@ -690,7 +697,6 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
       )}
 
       <div className="flex items-center w-full px-3 md:px-4">
-        {/* File upload button */}
         {features.uploads && (
           <>
             <input
@@ -718,7 +724,6 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
           </>
         )}
 
-        {/* Speech-to-text button */}
         {features.stt && (
           <button
             onClick={handleMicClick}

@@ -87,6 +87,42 @@
   }
 }
 
+/* Refined Input Container - Floating, Calm, Precise */
+.refined-input-container {
+  position: relative;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 8px;
+}
+
+.refined-input-container>div {
+  background: rgba(26, 26, 26, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.refined-input-container>div:focus-within {
+  background: rgba(30, 30, 30, 0.7);
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Light mode refinements */
+.light .refined-input-container>div {
+  background: rgba(245, 245, 245, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.light .refined-input-container>div:focus-within {
+  background: rgba(240, 240, 240, 0.9);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
+}
+
 /* Custom Scrollbar */
 ::selection {
   background: rgba(34, 211, 238, 0.18);
@@ -229,6 +265,7 @@
 }
 
 @keyframes thinkingDotPulse {
+
   0%,
   80%,
   100% {
@@ -251,12 +288,11 @@
 .chat-input::placeholder {
   color: var(--placeholder-color);
   opacity: 1;
-  transition: opacity 120ms ease-out;
+  transition: opacity 180ms ease-out;
 }
 
-.chat-input:focus::placeholder,
-.chat-input:not(:placeholder-shown)::placeholder {
-  opacity: 0.5;
+.chat-input:focus::placeholder {
+  opacity: 0.4;
 }
 
 /* Mobile optimizations */
@@ -265,25 +301,29 @@
     font-size: 12px;
     padding: 12px;
   }
-  
+
   .markdown-content h1 {
     font-size: 1.25rem;
   }
-  
+
   .markdown-content h2 {
     font-size: 1.125rem;
   }
-  
+
   .markdown-content h3 {
     font-size: 1rem;
   }
-  
+
   .markdown-content table {
     font-size: 12px;
   }
-  
+
   .markdown-content table th,
   .markdown-content table td {
     padding: 8px 10px;
+  }
+
+  .refined-input-container {
+    padding: 0 4px;
   }
 }
