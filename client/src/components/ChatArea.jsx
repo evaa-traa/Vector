@@ -348,11 +348,11 @@ const MessageRow = React.memo(({
           </div>
         )}
 
-        <div className={cn("text-base text-foreground", msg.role === "user" && "text-right")}>
+        <div className={cn("text-base text-[#ECECEC]", msg.role === "user" && "text-right")}>
           {msg.role === "assistant" ? (
             <MarkdownContent content={msg.content} />
           ) : (
-            <div className="bg-secondary rounded-[12px] px-4 py-3 text-foreground">
+            <div className="bg-[#2A2A2A] rounded-[12px] px-4 py-3 text-[#ECECEC]">
               {msg.content}
             </div>
           )}
@@ -363,7 +363,7 @@ const MessageRow = React.memo(({
 
         {/* Assistant Extras: Sources, Related */}
         {msg.role === "assistant" && msg.content && !isStreaming && (
-          <div className="mt-4 space-y-4 w-full">
+          <div className="mt-4 space-y-4 w-full mb-8">
             {/* Sources */}
             {sources.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 custom-scrollbar">
@@ -373,12 +373,12 @@ const MessageRow = React.memo(({
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-shrink-0 flex flex-col justify-between w-32 h-20 p-2 rounded-lg border border-border bg-foreground/5 hover:bg-foreground/10 transition-colors text-xs group"
+                    className="flex-shrink-0 flex flex-col justify-between w-32 h-20 p-2 rounded-[10px] bg-[#262626] transition-colors text-xs group"
                   >
-                    <div className="font-medium truncate text-foreground/90 transition-colors">
+                    <div className="font-medium truncate text-[#B3B3B3] transition-colors">
                       {item.title}
                     </div>
-                    <div className="flex items-center gap-1 text-muted-foreground/70">
+                    <div className="flex items-center gap-1 text-[#B3B3B3] opacity-70">
                       <Globe size={10} />
                       <span className="truncate">{new URL(item.url).hostname.replace('www.', '')}</span>
                     </div>
@@ -388,7 +388,7 @@ const MessageRow = React.memo(({
             )}
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-2 border-t border-[rgba(255,255,255,0.04)]">
+            <div className="flex items-center gap-2 mt-2 rounded-[8px] bg-[#262626] px-2 py-1 text-[#B3B3B3] opacity-70">
               <ActionBtn
                 icon={<Copy size={14} />}
                 label="Copy"
@@ -573,7 +573,7 @@ export default function ChatArea({
           </div>
         ) : (
           /* Chat Messages */
-          <div className="mx-auto max-w-3xl w-full px-4 md:px-0 py-8 space-y-8">
+            <div className="mx-auto max-w-3xl w-full px-4 md:px-0 py-10 space-y-10">
             {activeSession?.messages.map((msg, index) => {
               const isLastAssistant =
                 msg.role === "assistant" &&
@@ -597,7 +597,7 @@ export default function ChatArea({
 
             {/* Follow-ups */}
             {!isStreaming && followUps.length > 0 && (
-              <div className="pl-12 space-y-3 animate-in fade-in duration-500">
+              <div className="pl-12 space-y-3 animate-in fade-in duration-500 mt-10">
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                   <Sparkles size={14} />
                   <span>Related</span>
@@ -607,10 +607,10 @@ export default function ChatArea({
                     <button
                       key={i}
                       onClick={() => onSelectFollowUp(item)}
-                      className="text-left flex items-center justify-between p-3 rounded-lg border border-border bg-foreground/5 hover:bg-foreground/8 transition-colors group w-full md:w-fit md:min-w-[300px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                      className="text-left flex items-center justify-between p-3 rounded-[10px] bg-[#262626] transition-colors group w-full md:w-fit md:min-w-[300px] focus-visible:outline-none"
                     >
-                      <span className="text-sm text-foreground/90 group-hover:text-foreground">{item}</span>
-                      <ArrowRight size={14} className="text-muted-foreground opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                      <span className="text-sm text-[#B3B3B3] group-hover:text-[#ECECEC]">{item}</span>
+                      <ArrowRight size={14} className="text-[#B3B3B3] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                     </button>
                   ))}
                 </div>
@@ -859,7 +859,7 @@ function ActionBtn({ icon, label, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      className="flex items-center gap-1.5 px-2 py-1 rounded-[6px] text-xs font-medium text-[#B3B3B3] hover:text-[#ECECEC] transition-colors focus-visible:outline-none"
       aria-label={label}
     >
       {icon}
