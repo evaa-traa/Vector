@@ -613,6 +613,81 @@ Apply the instruction to edit the document. Return ONLY the updated document con
   }
 });
 
+// Labs selection-based AI editing - edits only the selected portion
+app.post("/labs-edit-selection", async (req, res) => {
+  const { selectedText, instruction, contextBefore, contextAfter, modelId } = req.body || {};
+
+  if (!selectedText || typeof selectedText !== "string") {
+    return res.status(400).json({ error: "No text selected" });
+  }
+  if (!instruction || typeof instruction !== "string" || instruction.length > 2000) {
+    return res.status(400).json({ error: "Invalid instruction" });
+  }
+
+  // Resolve model
+  const detailed = loadModelsFromEnvDetailed(process.env);
+  let model = null;
+  if (typeof modelId === "string" && modelId.trim() !== "") {
+    const idx = Number(modelId);
+    model = detailed.models.find((item) => item.index === idx) || null;
+  }
+  if (!model) {
+    model = detailed.models[0] || null;
+  }
+  if (!model) {
+    return res.status(404).json({ error: "Model not found" });
+  }
+
+  // Build prompt for surgical editing
+  const editPrompt = `You are editing a specific text selection within a larger document.
+
+CONTEXT BEFORE THE SELECTION:
+${contextBefore || "(start of document)"}
+
+SELECTED TEXT TO EDIT:
+${selectedText}
+
+CONTEXT AFTER THE SELECTION:
+${contextAfter || "(end of document)"}
+
+USER INSTRUCTION: ${instruction}
+
+CRITICAL: Return ONLY the replacement text for the selection. Do not include context, explanations, or markdown code blocks. Just the edited text that will replace the selection.`;
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no"
+  });
+
+  const controller = new AbortController();
+  req.on("aborted", () => controller.abort());
+  res.on("close", () => {
+    if (!res.writableEnded) controller.abort();
+  });
+
+  try {
+    await streamFlowise({
+      res,
+      model,
+      message: editPrompt,
+      mode: "chat",
+      sessionId: "",
+      uploads: [],
+      signal: controller.signal
+    });
+    sendEvent(res, "done", { ok: true });
+  } catch (error) {
+    console.error("[Labs] Selection edit failed:", error.message);
+    if (!controller.signal.aborted) {
+      sendEvent(res, "error", { message: error.message });
+    }
+  } finally {
+    if (!res.writableEnded) res.end();
+  }
+});
+
 // Non-streaming JSON endpoint compatible with Flowise template usage
 app.post("/predict", async (req, res) => {
 

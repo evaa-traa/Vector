@@ -206,6 +206,67 @@ export default function LabsArea({
         }
     };
 
+    // Handle selection-based AI editing
+    const handleSelectionEdit = async ({ selectedText, instruction, contextBefore, contextAfter, modelId }) => {
+        try {
+            const response = await fetch("/labs-edit-selection", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    selectedText,
+                    instruction,
+                    contextBefore,
+                    contextAfter,
+                    modelId
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text().catch(() => "");
+                throw new Error(errorText || `Request failed (${response.status})`);
+            }
+
+            // Parse SSE response
+            if (!response.body) {
+                throw new Error("No response body");
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullContent = "";
+            let buffer = "";
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+
+                const lines = buffer.split("\n");
+                buffer = lines.pop() || "";
+
+                for (const line of lines) {
+                    if (line.startsWith("data: ")) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            if (data.text) {
+                                fullContent += data.text;
+                            }
+                        } catch {
+                            fullContent += line.slice(6);
+                        }
+                    }
+                }
+            }
+
+            return fullContent;
+        } catch (error) {
+            console.error("[Labs] Selection edit failed:", error);
+            setError(error.message || "Failed to edit selection");
+            throw error;
+        }
+    };
+
     const handleKeyDown = (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -392,6 +453,8 @@ export default function LabsArea({
                                     content={activeProject.document}
                                     onChange={handleDocumentChange}
                                     isProcessing={isProcessing}
+                                    onSelectionEdit={handleSelectionEdit}
+                                    modelId={selectedModelId}
                                 />
                             </div>
 

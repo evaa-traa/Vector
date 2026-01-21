@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
-import { motion } from "framer-motion";
-import { Eye, Edit3, Copy, Check } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Eye, Edit3, Copy, Check, Sparkles, X, Loader2, Send } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -55,7 +55,7 @@ function MarkdownPreview({ content }) {
                             {...props}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-foreground underline decoration-border hover:text-foreground/90 hover:decoration-muted-foreground/40 transition-colors"
+                            className="text-white underline decoration-border hover:text-white/90 hover:decoration-muted-foreground/40 transition-colors"
                         />
                     ),
                     pre: ({ children, ...props }) => {
@@ -81,7 +81,7 @@ function MarkdownPreview({ content }) {
                                 </pre>
                                 <button
                                     onClick={() => handleCopyCode(codeContent, index)}
-                                    className="absolute top-2 right-2 p-1.5 rounded-md bg-foreground/10 hover:bg-foreground/20 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-all"
+                                    className="absolute top-2 right-2 p-1.5 rounded-md bg-foreground/10 hover:bg-foreground/20 text-muted-foreground hover:text-white opacity-0 group-hover:opacity-100 transition-all"
                                     aria-label="Copy code"
                                 >
                                     {copiedCode === index ? (
@@ -97,7 +97,7 @@ function MarkdownPreview({ content }) {
                         if (inline) {
                             return (
                                 <code
-                                    className="px-1.5 py-0.5 rounded-md bg-foreground/10 text-foreground text-sm font-mono"
+                                    className="px-1.5 py-0.5 rounded-md bg-foreground/10 text-white text-sm font-mono"
                                     {...props}
                                 >
                                     {children}
@@ -105,7 +105,7 @@ function MarkdownPreview({ content }) {
                             );
                         }
                         return (
-                            <code className={cn("text-foreground/90 font-mono text-sm", className)} {...props}>
+                            <code className={cn("text-white/90 font-mono text-sm", className)} {...props}>
                                 {children}
                             </code>
                         );
@@ -124,7 +124,7 @@ function MarkdownPreview({ content }) {
                     ),
                     th: ({ children, ...props }) => (
                         <th
-                            className="px-4 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider border-r border-border last:border-r-0"
+                            className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-border last:border-r-0"
                             {...props}
                         >
                             {children}
@@ -132,7 +132,7 @@ function MarkdownPreview({ content }) {
                     ),
                     td: ({ children, ...props }) => (
                         <td
-                            className="px-4 py-3 text-sm text-foreground/80 border-r border-border last:border-r-0"
+                            className="px-4 py-3 text-sm text-white/80 border-r border-border last:border-r-0"
                             {...props}
                         >
                             {children}
@@ -157,44 +157,44 @@ function MarkdownPreview({ content }) {
                         </ol>
                     ),
                     li: ({ children, ordered, ...props }) => (
-                        <li className="relative pl-6 text-foreground/90" {...props}>
+                        <li className="relative pl-6 text-white/90" {...props}>
                             <span className="absolute left-0 text-muted-foreground">•</span>
                             {children}
                         </li>
                     ),
                     h1: ({ children, ...props }) => (
-                        <h1 className="text-2xl font-bold text-foreground mt-6 mb-4 pb-2 border-b border-border" {...props}>
+                        <h1 className="text-2xl font-bold text-white mt-6 mb-4 pb-2 border-b border-border" {...props}>
                             {children}
                         </h1>
                     ),
                     h2: ({ children, ...props }) => (
-                        <h2 className="text-xl font-semibold text-foreground mt-5 mb-3" {...props}>
+                        <h2 className="text-xl font-semibold text-white mt-5 mb-3" {...props}>
                             {children}
                         </h2>
                     ),
                     h3: ({ children, ...props }) => (
-                        <h3 className="text-lg font-semibold text-foreground mt-4 mb-2" {...props}>
+                        <h3 className="text-lg font-semibold text-white mt-4 mb-2" {...props}>
                             {children}
                         </h3>
                     ),
                     p: ({ children, ...props }) => (
-                        <p className="my-[0.7em] text-foreground/90 leading-[1.65]" {...props}>
+                        <p className="my-[0.7em] text-white/90 leading-[1.65]" {...props}>
                             {children}
                         </p>
                     ),
                     strong: ({ children, ...props }) => (
-                        <strong className="font-bold text-foreground" {...props}>
+                        <strong className="font-bold text-white" {...props}>
                             {children}
                         </strong>
                     ),
                     em: ({ children, ...props }) => (
-                        <em className="italic text-foreground/90" {...props}>
+                        <em className="italic text-white/90" {...props}>
                             {children}
                         </em>
                     ),
                     blockquote: ({ children, ...props }) => (
                         <blockquote
-                            className="my-4 pl-4 border-l-4 border-border bg-foreground/5 py-2 pr-4 rounded-r-lg italic text-foreground/80"
+                            className="my-4 pl-4 border-l-4 border-border bg-foreground/5 py-2 pr-4 rounded-r-lg italic text-white/80"
                             {...props}
                         >
                             {children}
@@ -212,13 +212,131 @@ function MarkdownPreview({ content }) {
 }
 
 /**
- * Document editor with edit/preview modes
+ * Floating AI Edit Toolbar that appears when text is selected
  */
-export default function LabsEditor({ content, onChange, isProcessing }) {
-    const [mode, setMode] = useState("edit"); // "edit" | "preview"
+function SelectionToolbar({
+    position,
+    selectedText,
+    onClose,
+    onSubmit,
+    isProcessing
+}) {
+    const [instruction, setInstruction] = useState("");
+    const [showInput, setShowInput] = useState(false);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (showInput && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [showInput]);
+
+    const handleSubmit = () => {
+        if (instruction.trim() && !isProcessing) {
+            onSubmit(instruction.trim());
+            setInstruction("");
+            setShowInput(false);
+        }
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit();
+        } else if (e.key === "Escape") {
+            onClose();
+        }
+    };
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 5, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 5, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="fixed z-50 bg-[#1E1E1E] border border-border rounded-xl shadow-xl"
+            style={{
+                left: `${position.x}px`,
+                top: `${position.y}px`,
+                transform: "translateX(-50%)"
+            }}
+        >
+            {!showInput ? (
+                <button
+                    onClick={() => setShowInput(true)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white hover:bg-foreground/10 rounded-xl transition-colors"
+                >
+                    <Sparkles size={14} className="text-primary" />
+                    AI Edit
+                </button>
+            ) : (
+                <div className="p-2 min-w-[280px]">
+                    <div className="flex items-center gap-2 mb-2 px-2">
+                        <Sparkles size={14} className="text-primary shrink-0" />
+                        <span className="text-xs text-muted-foreground truncate">
+                            Editing: "{selectedText.slice(0, 30)}{selectedText.length > 30 ? '...' : ''}"
+                        </span>
+                        <button
+                            onClick={onClose}
+                            className="ml-auto p-1 hover:bg-foreground/10 rounded"
+                        >
+                            <X size={12} />
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={instruction}
+                            onChange={(e) => setInstruction(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            placeholder="What should I change?"
+                            disabled={isProcessing}
+                            className="flex-1 bg-foreground/5 border border-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-muted-foreground outline-none focus:border-primary/50"
+                        />
+                        <button
+                            onClick={handleSubmit}
+                            disabled={!instruction.trim() || isProcessing}
+                            className={cn(
+                                "p-2 rounded-lg transition-colors",
+                                instruction.trim() && !isProcessing
+                                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                    : "bg-foreground/10 text-muted-foreground/50 cursor-not-allowed"
+                            )}
+                        >
+                            {isProcessing ? (
+                                <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                                <Send size={14} />
+                            )}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </motion.div>
+    );
+}
+
+/**
+ * Document editor with edit/preview modes and selection-based AI editing
+ */
+export default function LabsEditor({
+    content,
+    onChange,
+    isProcessing,
+    onSelectionEdit,
+    modelId
+}) {
+    const [mode, setMode] = useState("edit");
     const textareaRef = useRef(null);
+    const containerRef = useRef(null);
     const [localContent, setLocalContent] = useState(content);
     const debounceRef = useRef(null);
+
+    // Selection state
+    const [selection, setSelection] = useState(null);
+    const [toolbarPosition, setToolbarPosition] = useState(null);
+    const [isEditing, setIsEditing] = useState(false);
 
     // Sync external content changes
     useEffect(() => {
@@ -257,8 +375,102 @@ export default function LabsEditor({ content, onChange, isProcessing }) {
         }
     }, [localContent, mode]);
 
+    // Handle text selection
+    const handleSelect = useCallback(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const selectedText = textarea.value.substring(start, end);
+
+        if (selectedText.length > 3) {
+            // Calculate position for toolbar
+            const rect = textarea.getBoundingClientRect();
+
+            // Get position using a temporary span (approximation)
+            const textBeforeSelection = textarea.value.substring(0, start);
+            const lines = textBeforeSelection.split('\n');
+            const currentLine = lines.length;
+            const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
+
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + (currentLine * lineHeight) - 30;
+
+            setSelection({
+                start,
+                end,
+                text: selectedText
+            });
+            setToolbarPosition({ x, y: Math.max(y, rect.top + 10) });
+        } else {
+            closeToolbar();
+        }
+    }, []);
+
+    const closeToolbar = () => {
+        setSelection(null);
+        setToolbarPosition(null);
+        setIsEditing(false);
+    };
+
+    // Handle selection edit submission
+    const handleSelectionEdit = async (instruction) => {
+        if (!selection || !onSelectionEdit) return;
+
+        setIsEditing(true);
+
+        try {
+            // Get context around selection
+            const contextBefore = localContent.substring(
+                Math.max(0, selection.start - 100),
+                selection.start
+            );
+            const contextAfter = localContent.substring(
+                selection.end,
+                Math.min(localContent.length, selection.end + 100)
+            );
+
+            const replacement = await onSelectionEdit({
+                selectedText: selection.text,
+                instruction,
+                contextBefore,
+                contextAfter,
+                modelId
+            });
+
+            if (replacement) {
+                // Apply the replacement
+                const newContent =
+                    localContent.substring(0, selection.start) +
+                    replacement +
+                    localContent.substring(selection.end);
+
+                setLocalContent(newContent);
+                onChange(newContent);
+            }
+        } catch (error) {
+            console.error("[Labs] Selection edit failed:", error);
+        } finally {
+            setIsEditing(false);
+            closeToolbar();
+        }
+    };
+
+    // Close toolbar when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                closeToolbar();
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
     return (
-        <div className="h-full flex flex-col">
+        <div ref={containerRef} className="h-full flex flex-col relative">
             {/* Mode Toggle */}
             <div className="flex items-center gap-1 px-4 py-2 border-b border-border bg-background/50">
                 <button
@@ -266,34 +478,41 @@ export default function LabsEditor({ content, onChange, isProcessing }) {
                     className={cn(
                         "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                         mode === "edit"
-                            ? "bg-foreground/10 text-foreground"
-                            : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                            ? "bg-foreground/10 text-white"
+                            : "text-muted-foreground hover:text-white hover:bg-foreground/5"
                     )}
                 >
                     <Edit3 size={14} />
                     Edit
                 </button>
                 <button
-                    onClick={() => setMode("preview")}
+                    onClick={() => { setMode("preview"); closeToolbar(); }}
                     className={cn(
                         "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                         mode === "preview"
-                            ? "bg-foreground/10 text-foreground"
-                            : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                            ? "bg-foreground/10 text-white"
+                            : "text-muted-foreground hover:text-white hover:bg-foreground/5"
                     )}
                 >
                     <Eye size={14} />
                     Preview
                 </button>
 
-                {isProcessing && (
+                {/* Selection hint */}
+                {mode === "edit" && !selection && (
+                    <div className="ml-auto text-xs text-muted-foreground/60 hidden md:block">
+                        💡 Select text for AI editing
+                    </div>
+                )}
+
+                {(isProcessing || isEditing) && (
                     <div className="ml-auto flex items-center gap-2 text-primary text-sm">
                         <motion.div
                             animate={{ rotate: 360 }}
                             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                             className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full"
                         />
-                        <span>AI is working...</span>
+                        <span>{isEditing ? "Editing selection..." : "AI is working..."}</span>
                     </div>
                 )}
             </div>
@@ -305,6 +524,8 @@ export default function LabsEditor({ content, onChange, isProcessing }) {
                         ref={textareaRef}
                         value={localContent}
                         onChange={handleChange}
+                        onSelect={handleSelect}
+                        onMouseUp={handleSelect}
                         placeholder="Start writing your document here...
 
 You can use Markdown formatting:
@@ -316,12 +537,12 @@ You can use Markdown formatting:
 > Blockquotes
 `inline code`
 
-Or use the AI instruction bar below to generate content."
-                        disabled={isProcessing}
+💡 Tip: Select any text and click 'AI Edit' to make surgical changes!"
+                        disabled={isProcessing || isEditing}
                         className={cn(
-                            "w-full min-h-full p-6 bg-transparent outline-none resize-none text-foreground font-mono text-sm leading-relaxed",
+                            "w-full min-h-full p-6 bg-transparent outline-none resize-none text-white font-mono text-sm leading-relaxed",
                             "placeholder:text-muted-foreground/50",
-                            isProcessing && "opacity-50"
+                            (isProcessing || isEditing) && "opacity-50"
                         )}
                         spellCheck="true"
                     />
@@ -329,6 +550,19 @@ Or use the AI instruction bar below to generate content."
                     <MarkdownPreview content={localContent} />
                 )}
             </div>
+
+            {/* Floating Selection Toolbar */}
+            <AnimatePresence>
+                {selection && toolbarPosition && mode === "edit" && (
+                    <SelectionToolbar
+                        position={toolbarPosition}
+                        selectedText={selection.text}
+                        onClose={closeToolbar}
+                        onSubmit={handleSelectionEdit}
+                        isProcessing={isEditing}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 }
