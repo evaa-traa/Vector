@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
@@ -538,7 +538,7 @@ export default function ChatArea({
             {/* Fake search bar for hero aesthetic - functionality is in the footer input though */}
             <div className="w-full max-w-2xl">
               <div className="relative group">
-                <div className="relative bg-[#1A1C24] border border-[#2A2F3A] rounded-[12px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] transition-[border-color,box-shadow] duration-[120ms] ease-[cubic-bezier(0.25,0.1,0.25,1)] focus-within:border-[#3A4250] focus-within:shadow-[inset_0_0_4px_rgba(0,0,0,0.35)]">
+                <div className="relative bg-[var(--input-surface)] border border-[var(--input-border)] rounded-[12px] transition-[border-color,background-color] duration-[120ms] ease-out focus-within:bg-[var(--input-surface-focus)] focus-within:border-[var(--input-border-focus)]">
                   <SearchInput
                     value={message}
                     onChange={onMessageChange}
@@ -626,7 +626,7 @@ export default function ChatArea({
       {!isEmpty && (
         <div className="p-4 md:p-6 bg-card z-20">
           <div className="mx-auto max-w-3xl relative">
-            <div className="relative bg-[#1A1C24] border border-[#2A2F3A] rounded-[12px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] transition-[border-color,box-shadow] duration-[120ms] ease-[cubic-bezier(0.25,0.1,0.25,1)] focus-within:border-[#3A4250] focus-within:shadow-[inset_0_0_4px_rgba(0,0,0,0.35)]">
+            <div className="relative bg-[var(--input-surface)] border border-[var(--input-border)] rounded-[12px] transition-[border-color,background-color] duration-[120ms] ease-out focus-within:bg-[var(--input-surface-focus)] focus-within:border-[var(--input-border-focus)]">
               <SearchInput
                 value={message}
                 onChange={onMessageChange}
@@ -647,10 +647,25 @@ export default function ChatArea({
 
 function SearchInput({ value, onChange, onSend, disabled, isHero = false, features = {} }) {
   const fileInputRef = React.useRef(null);
+  const textareaRef = React.useRef(null);
+  const textareaScrollTimeoutRef = React.useRef(null);
   const [isRecording, setIsRecording] = React.useState(false);
   const [selectedFiles, setSelectedFiles] = React.useState([]);
   const mediaRecorderRef = React.useRef(null);
   const audioChunksRef = React.useRef([]);
+  const maxTextareaHeight = isHero ? 120 : 180;
+  const minTextareaHeight = isHero ? 52 : 48;
+
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    el.style.height = "0px";
+    const unclamped = el.scrollHeight;
+    const next = Math.max(minTextareaHeight, Math.min(unclamped, maxTextareaHeight));
+    el.style.height = `${next}px`;
+    el.style.overflowY = unclamped > maxTextareaHeight ? "auto" : "hidden";
+  }, [value, isHero, maxTextareaHeight, minTextareaHeight]);
 
   const handleSend = () => {
     if ((value.trim() || selectedFiles.length > 0) && !disabled) {
@@ -665,6 +680,15 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
       e.preventDefault();
       handleSend();
     }
+  };
+  
+  const handleTextareaScroll = (e) => {
+    const el = e.currentTarget;
+    el.classList.add("scrolling");
+    if (textareaScrollTimeoutRef.current) clearTimeout(textareaScrollTimeoutRef.current);
+    textareaScrollTimeoutRef.current = setTimeout(() => {
+      el.classList.remove("scrolling");
+    }, 150);
   };
 
   const handleFileSelect = (e) => {
@@ -792,29 +816,31 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
         )}
 
         <textarea
+          ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
+          onScroll={handleTextareaScroll}
           placeholder={isHero ? "Ask anything..." : "Ask follow-up..."}
           aria-label={isHero ? "Ask anything" : "Message"}
           className={cn(
-            "chat-input flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-foreground resize-none custom-scrollbar caret-[#22D3EE]",
+            "chat-input flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-foreground resize-none custom-scrollbar",
             isHero
               ? "py-3 px-0 text-lg md:text-xl font-medium"
-              : "py-[14px] px-0 text-[14px] leading-5 placeholder:text-[#7C8797]"
+              : "py-[14px] px-0 text-[14px] leading-5"
           )}
           rows={isHero ? 1 : 1}
-          style={{ minHeight: isHero ? '52px' : '48px' }}
+          style={{ minHeight: `${minTextareaHeight}px`, maxHeight: `${maxTextareaHeight}px` }}
         />
         <div className="flex items-center gap-2 pr-2">
           <button
             onClick={handleSend}
             disabled={(!value.trim() && selectedFiles.length === 0) || disabled}
             className={cn(
-              "p-2 rounded-[10px] border transition-[background-color,border-color] duration-[120ms] ease-[cubic-bezier(0.25,0.1,0.25,1)] flex items-center justify-center focus-visible:outline-none",
+              "p-2 rounded-[10px] transition-[background-color] duration-[120ms] ease-out flex items-center justify-center focus-visible:outline-none",
               value.trim() && !disabled
-                ? "bg-transparent border-[#2A2F3A] text-[#22D3EE] hover:bg-foreground/5 hover:border-[#3A4250] active:bg-foreground/8"
-                : "bg-transparent border-[#2A2F3A] text-muted-foreground/60 cursor-not-allowed"
+                ? "bg-transparent text-[#22D3EE] hover:bg-foreground/5 hover:text-[#38E1F8] active:bg-foreground/8"
+                : "bg-transparent text-muted-foreground/60 cursor-not-allowed"
             )}
           >
             {disabled ? (

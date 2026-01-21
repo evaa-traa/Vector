@@ -4,15 +4,15 @@
 
 @layer base {
   :root {
-    --background: 225 21.0526% 7.451%;
+    --background: 0 0% 12.9412%;
     --foreground: 240 15.1515% 93.5294%;
-    --card: 225 17.3913% 9.0196%;
+    --card: 0 0% 12.9412%;
     --card-foreground: 240 15.1515% 93.5294%;
-    --popover: 222.8571 22.5806% 6.0784%;
+    --popover: 0 0% 9.4118%;
     --popover-foreground: 240 15.1515% 93.5294%;
     --primary: 187.9412 85.7143% 53.3333%;
     --primary-foreground: 0 0% 0%;
-    --secondary: 230 23.0769% 15.2941%;
+    --secondary: 0 0% 18.8235%;
     --secondary-foreground: 240 15.1515% 93.5294%;
     --muted: 228 22.3881% 13.1373%;
     --muted-foreground: 240 4.6632% 62.1569%;
@@ -20,9 +20,16 @@
     --accent-foreground: 240 15.1515% 93.5294%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 231.4286 12.2807% 11.1765%;
-    --input: 228 16.129% 12.1569%;
+    --border: 0 0% 22.7451%;
+    --input: 0 0% 18.8235%;
     --ring: 187.9412 85.7143% 53.3333%;
+    --input-surface: #303030;
+    --input-surface-focus: #323232;
+    --input-border: #3A3A3A;
+    --input-border-focus: #4A4A4A;
+    --placeholder-color: rgba(255, 255, 255, 0.44);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.16);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.22);
   }
 
   .light {
@@ -31,7 +38,7 @@
     --foreground: 240 10% 4%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 4%;
-    --popover: 0 0% 100%;
+    --popover: 0 0% 97.6471%;
     --popover-foreground: 240 10% 4%;
     --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
@@ -43,9 +50,16 @@
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 0 0% 89.8039%;
+    --input: 0 0% 95.2941%;
     --ring: 221.2 83.2% 53.3%;
+    --input-surface: #F3F3F3;
+    --input-surface-focus: #F3F3F3;
+    --input-border: #E5E5E5;
+    --input-border-focus: #DADADA;
+    --placeholder-color: rgba(0, 0, 0, 0.42);
+    --scrollbar-thumb: rgba(0, 0, 0, 0.14);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.2);
   }
 }
 
@@ -85,8 +99,8 @@
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -94,17 +108,17 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: rgba(42, 45, 58, 0);
+  background-color: rgba(0, 0, 0, 0);
   border-radius: 9999px;
   transition: background-color 150ms ease;
 }
 
 .custom-scrollbar.scrolling::-webkit-scrollbar-thumb {
-  background-color: rgba(42, 45, 58, 1);
+  background-color: var(--scrollbar-thumb);
 }
 
 .custom-scrollbar.scrolling::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(58, 61, 74, 1);
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 /* Markdown Content Styling */
@@ -215,14 +229,10 @@
   animation: thinkingDotPulse 1.4s infinite;
 }
 
-.chat-input {
-  caret-color: #22D3EE;
-}
-
 .chat-input::placeholder {
-  color: #7D7D86;
+  color: var(--placeholder-color);
   opacity: 1;
-  transition: opacity 120ms ease;
+  transition: opacity 120ms ease-out;
 }
 
 .chat-input:focus::placeholder,
