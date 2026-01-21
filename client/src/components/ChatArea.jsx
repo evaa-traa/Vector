@@ -322,7 +322,7 @@ const MessageRow = React.memo(({
 
       {/* Message Content */}
       <div className={cn(
-        "flex flex-col gap-2",
+        "flex flex-col gap-2 min-w-0",
         msg.role === "user"
           ? "items-end max-w-[88%] md:max-w-[85%]"
           : "items-start w-full"
@@ -524,7 +524,7 @@ export default function ChatArea({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar scroll-smooth bg-card" ref={scrollRef}>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar scroll-smooth bg-card" ref={scrollRef}>
         {isEmpty ? (
           /* Empty State / Hero Section */
           <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
@@ -538,7 +538,7 @@ export default function ChatArea({
             {/* Fake search bar for hero aesthetic - functionality is in the footer input though */}
             <div className="w-full max-w-2xl">
               <div className="relative group">
-                <div className="relative bg-input border border-[rgba(255,255,255,0.05)] rounded-2xl p-4 flex items-center gap-4 shadow-none transition-[box-shadow,border-color] duration-[120ms] focus-within:border-[#22D3EE] focus-within:shadow-[0_0_0_6px_rgba(34,211,238,0.35)]">
+                <div className="relative bg-[#1A1C24] border border-[#2A2F3A] rounded-[12px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] transition-[border-color,box-shadow] duration-[120ms] ease-[cubic-bezier(0.25,0.1,0.25,1)] focus-within:border-[#3A4250] focus-within:shadow-[inset_0_0_4px_rgba(0,0,0,0.35)]">
                   <SearchInput
                     value={message}
                     onChange={onMessageChange}
@@ -626,7 +626,7 @@ export default function ChatArea({
       {!isEmpty && (
         <div className="p-4 md:p-6 bg-card z-20">
           <div className="mx-auto max-w-3xl relative">
-            <div className="relative bg-input border border-[rgba(255,255,255,0.05)] rounded-2xl p-2 shadow-none flex items-center gap-2 transition-[box-shadow,border-color] duration-[120ms] focus-within:border-[#22D3EE] focus-within:shadow-[0_0_0_6px_rgba(34,211,238,0.35)]">
+            <div className="relative bg-[#1A1C24] border border-[#2A2F3A] rounded-[12px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] transition-[border-color,box-shadow] duration-[120ms] ease-[cubic-bezier(0.25,0.1,0.25,1)] focus-within:border-[#3A4250] focus-within:shadow-[inset_0_0_4px_rgba(0,0,0,0.35)]">
               <SearchInput
                 value={message}
                 onChange={onMessageChange}
@@ -723,7 +723,7 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
     <div className="flex flex-col w-full gap-2">
       {/* Selected files preview */}
       {selectedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-3 pt-2">
+        <div className="flex flex-wrap gap-2 px-4 pt-3">
           {selectedFiles.map((file, index) => (
             <div
               key={index}
@@ -742,7 +742,7 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
         </div>
       )}
 
-      <div className="flex items-center w-full">
+      <div className="flex items-center w-full px-4">
         {/* File upload button */}
         {features.uploads && (
           <>
@@ -758,7 +758,7 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
               className={cn(
-                "p-2 rounded-xl transition-all duration-200 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ml-1",
+                "p-2 rounded-xl transition-colors duration-200 flex items-center justify-center focus-visible:outline-none",
                 disabled
                   ? "text-muted-foreground/50 cursor-not-allowed"
                   : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
@@ -777,7 +777,7 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
             onClick={handleMicClick}
             disabled={disabled}
             className={cn(
-              "p-2 rounded-xl transition-all duration-200 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+              "p-2 rounded-xl transition-colors duration-200 flex items-center justify-center focus-visible:outline-none",
               isRecording
                 ? "text-red-500 bg-red-500/10 animate-pulse"
                 : disabled
@@ -798,21 +798,23 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
           placeholder={isHero ? "Ask anything..." : "Ask follow-up..."}
           aria-label={isHero ? "Ask anything" : "Message"}
           className={cn(
-            "chat-input flex-1 bg-transparent border-none focus:ring-0 text-foreground resize-none py-3 px-3 custom-scrollbar",
-            isHero ? "text-lg md:text-xl font-medium" : "text-sm md:text-base"
+            "chat-input flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-foreground resize-none custom-scrollbar caret-[#22D3EE]",
+            isHero
+              ? "py-3 px-0 text-lg md:text-xl font-medium"
+              : "py-[14px] px-0 text-[14px] leading-5 placeholder:text-[#7C8797]"
           )}
           rows={isHero ? 1 : 1}
-          style={{ minHeight: isHero ? '52px' : '44px' }}
+          style={{ minHeight: isHero ? '52px' : '48px' }}
         />
         <div className="flex items-center gap-2 pr-2">
           <button
             onClick={handleSend}
             disabled={(!value.trim() && selectedFiles.length === 0) || disabled}
             className={cn(
-              "p-2 rounded-xl transition-[transform,background-color,box-shadow] duration-100 ease-out flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+              "p-2 rounded-[10px] border transition-[background-color,border-color] duration-[120ms] ease-[cubic-bezier(0.25,0.1,0.25,1)] flex items-center justify-center focus-visible:outline-none",
               value.trim() && !disabled
-                ? "bg-[#22D3EE] text-black hover:bg-[#38E1F8] active:bg-[#19BFD7] hover:-translate-y-[1px] hover:shadow-[0_8px_18px_rgba(0,0,0,0.14)]"
-                : "bg-foreground/5 text-muted-foreground cursor-not-allowed"
+                ? "bg-transparent border-[#2A2F3A] text-[#22D3EE] hover:bg-foreground/5 hover:border-[#3A4250] active:bg-foreground/8"
+                : "bg-transparent border-[#2A2F3A] text-muted-foreground/60 cursor-not-allowed"
             )}
           >
             {disabled ? (

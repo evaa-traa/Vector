@@ -103,13 +103,13 @@ export default function ChatSidebar({
             {/* New Chat Button */}
             <button
               onClick={onNewChat}
-              className="group flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-[#22D3EE] hover:bg-[#38E1F8] active:bg-[#19BFD7] border border-[rgba(255,255,255,0.04)] transition-[transform,background-color,box-shadow] duration-100 ease-out mb-6 text-sm font-medium text-black hover:-translate-y-[1px] hover:shadow-[0_8px_18px_rgba(0,0,0,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="group flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-transparent border border-[#2A2F3A] transition-[background-color,border-color] duration-[120ms] ease-[cubic-bezier(0.25,0.1,0.25,1)] mb-6 text-sm font-medium text-foreground hover:bg-foreground/5 hover:border-[#3A4250] active:bg-foreground/8 focus-visible:outline-none"
             >
-              <div className="bg-[rgba(15,17,23,0.12)] p-1.5 rounded-lg text-black/70 transition-colors">
+              <div className="bg-foreground/5 p-1.5 rounded-lg text-[#22D3EE] transition-colors group-hover:bg-foreground/8">
                 <Plus size={18} />
               </div>
               <span>New Thread</span>
-              <div className="ml-auto text-xs text-muted-foreground border border-border rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="ml-auto text-xs text-muted-foreground border border-[#2A2F3A] rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 Ctrl+N
               </div>
             </button>
