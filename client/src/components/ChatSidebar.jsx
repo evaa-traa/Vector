@@ -7,7 +7,8 @@ import {
   Moon,
   Sun,
   Bot,
-  History
+  History,
+  FlaskConical
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -36,6 +37,9 @@ export default function ChatSidebar({
   onSelectSession,
   theme,
   onToggleTheme,
+  activeView = "chat",
+  onNavigateToLabs,
+  onNavigateToChat,
 }) {
   const selectedModel = models?.find((item) => item.id === selectedModelId);
   const uploadsStatus = selectedModel?.features?.status || "unknown";
@@ -100,42 +104,80 @@ export default function ChatSidebar({
               </button>
             </div>
 
-            {/* New Chat Button */}
-            <button
-              onClick={onNewChat}
-              className="group flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-transparent border border-border transition-[background-color,border-color] duration-[120ms] ease-out mb-6 text-sm font-medium text-foreground hover:bg-foreground/5 hover:border-[var(--input-border-focus)] active:bg-foreground/8 focus-visible:outline-none"
-            >
-              <div className="bg-foreground/5 p-1.5 rounded-lg text-[#22D3EE] transition-colors group-hover:bg-foreground/8">
-                <Plus size={18} />
+            {/* View Navigation */}
+            <div className="space-y-2 mb-6">
+              <div className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Navigate
               </div>
-              <span>New Thread</span>
-              <div className="ml-auto text-xs text-muted-foreground border border-border rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                Ctrl+N
-              </div>
-            </button>
-
-            {/* Modes */}
-            <div className="space-y-4 mb-6">
-              <div className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                <span>Mode</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 p-1 bg-foreground/5 rounded-lg border border-border">
-                {modes.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => onModeChange(item.id)}
-                    className={cn(
-                      "flex items-center justify-center px-3 py-2 rounded-md text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                      mode === item.id
-                        ? "bg-foreground/10 text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
-                    )}
-                  >
-                    {item.label}
-                  </button>
-                ))}
+              <div className="space-y-1">
+                <button
+                  onClick={onNavigateToChat}
+                  className={cn(
+                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none",
+                    activeView === "chat"
+                      ? "bg-foreground/10 text-foreground"
+                      : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                  )}
+                >
+                  <MessageSquare size={16} />
+                  <span>Chat</span>
+                </button>
+                <button
+                  onClick={onNavigateToLabs}
+                  className={cn(
+                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none",
+                    activeView === "labs"
+                      ? "bg-foreground/10 text-foreground"
+                      : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                  )}
+                >
+                  <FlaskConical size={16} />
+                  <span>Labs</span>
+                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-medium">New</span>
+                </button>
               </div>
             </div>
+
+            {/* New Chat Button - only in chat view */}
+            {activeView === "chat" && (
+              <button
+                onClick={onNewChat}
+                className="group flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-transparent border border-border transition-[background-color,border-color] duration-[120ms] ease-out mb-6 text-sm font-medium text-foreground hover:bg-foreground/5 hover:border-[var(--input-border-focus)] active:bg-foreground/8 focus-visible:outline-none"
+              >
+                <div className="bg-foreground/5 p-1.5 rounded-lg text-[#22D3EE] transition-colors group-hover:bg-foreground/8">
+                  <Plus size={18} />
+                </div>
+                <span>New Thread</span>
+                <div className="ml-auto text-xs text-muted-foreground border border-border rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Ctrl+N
+                </div>
+              </button>
+            )}
+
+            {/* Modes - only in chat view */}
+            {activeView === "chat" && (
+              <div className="space-y-4 mb-6">
+                <div className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                  <span>Mode</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-foreground/5 rounded-lg border border-border">
+                  {modes.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => onModeChange(item.id)}
+                      className={cn(
+                        "flex items-center justify-center px-3 py-2 rounded-md text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                        mode === item.id
+                          ? "bg-foreground/10 text-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                      )}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Models Selection */}
             <div className="mb-6 space-y-2">
@@ -218,53 +260,60 @@ export default function ChatSidebar({
               )}
             </div>
 
-            {/* History List */}
-            <div ref={historyScrollRef} className="flex-1 overflow-y-auto -mx-2 px-2 custom-scrollbar">
-              <div className="mb-2 px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <History size={12} />
-                Recent
+            {/* History List - only in chat view */}
+            {activeView === "chat" && (
+              <div ref={historyScrollRef} className="flex-1 overflow-y-auto -mx-2 px-2 custom-scrollbar">
+                <div className="mb-2 px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <History size={12} />
+                  Recent
+                </div>
+                <div className="space-y-1">
+                  {historyList.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/70 gap-2">
+                      <MessageSquare size={24} className="opacity-20" />
+                      <span className="text-xs">No history yet</span>
+                    </div>
+                  ) : (
+                    historyList.map((session) => (
+                      <button
+                        key={session.id}
+                        onClick={() => onSelectSession(session.id)}
+                        className={cn(
+                          "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors group flex items-center gap-3 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                          activeSessionId === session.id
+                            ? "bg-[#202338] text-foreground"
+                            : "text-muted-foreground hover:bg-[#1A1D29] hover:text-foreground"
+                        )}
+                      >
+                        {activeSessionId === session.id && (
+                          <span className="absolute left-0 top-2 bottom-2 w-[2px] bg-[#22D3EE] rounded-full" />
+                        )}
+                        <MessageSquare size={16} className={cn(
+                          "shrink-0 transition-colors",
+                          activeSessionId === session.id ? "text-foreground" : "text-muted-foreground/70 group-hover:text-muted-foreground"
+                        )} />
+                        <span className="truncate flex-1 z-10 relative">{session.title || "New Thread"}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
-              <div className="space-y-1">
-                {historyList.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/70 gap-2">
-                    <MessageSquare size={24} className="opacity-20" />
-                    <span className="text-xs">No history yet</span>
-                  </div>
-                ) : (
-                  historyList.map((session) => (
-                    <button
-                      key={session.id}
-                      onClick={() => onSelectSession(session.id)}
-                      className={cn(
-                        "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors group flex items-center gap-3 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                        activeSessionId === session.id
-                          ? "bg-[#202338] text-foreground"
-                          : "text-muted-foreground hover:bg-[#1A1D29] hover:text-foreground"
-                      )}
-                    >
-                      {activeSessionId === session.id && (
-                        <span className="absolute left-0 top-2 bottom-2 w-[2px] bg-[#22D3EE] rounded-full" />
-                      )}
-                      <MessageSquare size={16} className={cn(
-                        "shrink-0 transition-colors",
-                        activeSessionId === session.id ? "text-foreground" : "text-muted-foreground/70 group-hover:text-muted-foreground"
-                      )} />
-                      <span className="truncate flex-1 z-10 relative">{session.title || "New Thread"}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
+            )}
+
+            {/* Spacer for Labs view */}
+            {activeView === "labs" && <div className="flex-1" />}
 
             {/* Footer Actions */}
             <div className="pt-4 mt-4 border-t border-[rgba(255,255,255,0.04)] space-y-2">
-              <button
-                onClick={onClearHistory}
-                className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-              >
-                <Trash2 size={16} />
-                <span>Clear History</span>
-              </button>
+              {activeView === "chat" && (
+                <button
+                  onClick={onClearHistory}
+                  className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                >
+                  <Trash2 size={16} />
+                  <span>Clear History</span>
+                </button>
+              )}
               <button
                 onClick={onToggleTheme}
                 className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"

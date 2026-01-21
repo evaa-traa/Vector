@@ -544,8 +544,78 @@ app.post("/chat", async (req, res) => {
   }
 });
 
+// Labs AI editing endpoint - generates or edits documents based on instruction
+app.post("/labs-edit", async (req, res) => {
+  const { document, instruction, modelId } = req.body || {};
+
+  if (!instruction || typeof instruction !== "string" || instruction.length > 10000) {
+    return res.status(400).json({ error: "Invalid instruction" });
+  }
+
+  // Resolve model
+  const detailed = loadModelsFromEnvDetailed(process.env);
+  let model = null;
+  if (typeof modelId === "string" && modelId.trim() !== "") {
+    const idx = Number(modelId);
+    model = detailed.models.find((item) => item.index === idx) || null;
+  }
+  if (!model) {
+    model = detailed.models[0] || null;
+  }
+  if (!model) {
+    return res.status(404).json({ error: "Model not found" });
+  }
+
+  // Build the prompt based on whether document exists
+  const isGeneration = !document || document.trim() === "";
+
+  const editPrompt = isGeneration
+    ? instruction // For generation, just pass the instruction directly
+    : `CURRENT DOCUMENT:
+${document}
+
+USER INSTRUCTION:
+${instruction}
+
+Apply the instruction to edit the document. Return ONLY the updated document content, no explanations.`;
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no"
+  });
+
+  const controller = new AbortController();
+  req.on("aborted", () => controller.abort());
+  res.on("close", () => {
+    if (!res.writableEnded) controller.abort();
+  });
+
+  try {
+    await streamFlowise({
+      res,
+      model,
+      message: editPrompt,
+      mode: "chat",
+      sessionId: "",
+      uploads: [],
+      signal: controller.signal
+    });
+    sendEvent(res, "done", { ok: true });
+  } catch (error) {
+    console.error("[Labs] AI edit failed:", error.message);
+    if (!controller.signal.aborted) {
+      sendEvent(res, "error", { message: error.message });
+    }
+  } finally {
+    if (!res.writableEnded) res.end();
+  }
+});
+
 // Non-streaming JSON endpoint compatible with Flowise template usage
 app.post("/predict", async (req, res) => {
+
   const { question, modelId, mode = "chat", sessionId } = req.body || {};
   if (
     !question ||

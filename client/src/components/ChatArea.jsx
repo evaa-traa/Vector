@@ -10,12 +10,11 @@ import {
   ArrowRight,
   Menu,
   Copy,
-  ThumbsUp,
-  ThumbsDown,
   RefreshCw,
   Paperclip,
   Mic,
-  X
+  X,
+  Check
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -69,17 +68,15 @@ function MarkdownContent({ content }) {
         transformLinkUri={sanitizeLinkUrl}
         transformImageUri={sanitizeLinkUrl}
         components={{
-          // Enhanced link rendering
           a: (props) => (
             <a
               {...props}
               target="_blank"
               rel="noopener noreferrer"
               href={sanitizeLinkUrl(props.href)}
-              className="text-foreground underline decoration-border hover:text-foreground/90 hover:decoration-muted-foreground/40 transition-colors"
+              className="text-white underline decoration-border hover:text-white/90 hover:decoration-muted-foreground/40 transition-colors"
             />
           ),
-          // Enhanced code block with copy button
           pre: ({ children, ...props }) => {
             const codeContent = React.Children.toArray(children)
               .map(child => {
@@ -94,20 +91,20 @@ function MarkdownContent({ content }) {
             const index = Math.random().toString(36).substr(2, 9);
 
             return (
-              <div className="relative group my-4">
+              <div className="relative group my-4 overflow-hidden">
                 <pre
                   {...props}
-                  className="bg-popover border border-border rounded-lg p-4 overflow-x-auto text-sm"
+                  className="bg-popover border border-border rounded-lg p-4 overflow-x-auto text-sm max-w-full"
                 >
                   {children}
                 </pre>
                 <button
                   onClick={() => handleCopyCode(codeContent, index)}
-                  className="absolute top-2 right-2 p-1.5 rounded-md bg-foreground/10 hover:bg-foreground/20 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-all"
+                  className="absolute top-2 right-2 p-1.5 rounded-md bg-foreground/10 hover:bg-foreground/20 text-muted-foreground hover:text-white opacity-0 group-hover:opacity-100 transition-all"
                   aria-label="Copy code"
                 >
                   {copiedCode === index ? (
-                    <span className="text-xs text-green-400">Copied!</span>
+                    <Check size={14} className="text-green-400" />
                   ) : (
                     <Copy size={14} />
                   )}
@@ -115,12 +112,11 @@ function MarkdownContent({ content }) {
               </div>
             );
           },
-          // Inline code styling
           code: ({ inline, className, children, ...props }) => {
             if (inline) {
               return (
                 <code
-                  className="px-1.5 py-0.5 rounded-md bg-foreground/10 text-foreground text-sm font-mono"
+                  className="px-1.5 py-0.5 rounded-md bg-foreground/10 text-white text-sm font-mono"
                   {...props}
                 >
                   {children}
@@ -128,14 +124,13 @@ function MarkdownContent({ content }) {
               );
             }
             return (
-              <code className={cn("text-foreground/90 font-mono text-sm", className)} {...props}>
+              <code className={cn("text-white/90 font-mono text-sm", className)} {...props}>
                 {children}
               </code>
             );
           },
-          // Enhanced table styling
           table: ({ children, ...props }) => (
-            <div className="my-4 overflow-x-auto rounded-lg border border-border">
+            <div className="my-4 overflow-x-auto rounded-lg border border-border max-w-full">
               <table className="min-w-full divide-y divide-border" {...props}>
                 {children}
               </table>
@@ -148,7 +143,7 @@ function MarkdownContent({ content }) {
           ),
           th: ({ children, ...props }) => (
             <th
-              className="px-4 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider border-r border-border last:border-r-0"
+              className="px-3 py-2 md:px-4 md:py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-border last:border-r-0"
               {...props}
             >
               {children}
@@ -156,7 +151,7 @@ function MarkdownContent({ content }) {
           ),
           td: ({ children, ...props }) => (
             <td
-              className="px-4 py-3 text-sm text-foreground/80 border-r border-border last:border-r-0"
+              className="px-3 py-2 md:px-4 md:py-3 text-sm text-white/80 border-r border-border last:border-r-0"
               {...props}
             >
               {children}
@@ -170,7 +165,6 @@ function MarkdownContent({ content }) {
               {children}
             </tr>
           ),
-          // Enhanced list styling
           ul: ({ children, ...props }) => (
             <ul className="my-3 ml-1 space-y-2 list-none" {...props}>
               {children}
@@ -182,60 +176,49 @@ function MarkdownContent({ content }) {
             </ol>
           ),
           li: ({ children, ordered, ...props }) => (
-            <li
-              className="relative pl-6 text-foreground/90"
-              style={{
-                '--bullet': ordered ? 'counter(item) "."' : '"•"'
-              }}
-              {...props}
-            >
+            <li className="relative pl-6 text-white/90" {...props}>
               <span className="absolute left-0 text-muted-foreground">•</span>
               {children}
             </li>
           ),
-          // Enhanced heading styling
           h1: ({ children, ...props }) => (
-            <h1 className="text-2xl font-bold text-foreground mt-6 mb-4 pb-2 border-b border-border" {...props}>
+            <h1 className="text-xl md:text-2xl font-bold text-white mt-6 mb-4 pb-2 border-b border-border" {...props}>
               {children}
             </h1>
           ),
           h2: ({ children, ...props }) => (
-            <h2 className="text-xl font-semibold text-foreground mt-5 mb-3" {...props}>
+            <h2 className="text-lg md:text-xl font-semibold text-white mt-5 mb-3" {...props}>
               {children}
             </h2>
           ),
           h3: ({ children, ...props }) => (
-            <h3 className="text-lg font-semibold text-foreground mt-4 mb-2" {...props}>
+            <h3 className="text-base md:text-lg font-semibold text-white mt-4 mb-2" {...props}>
               {children}
             </h3>
           ),
-          // Paragraph styling
           p: ({ children, ...props }) => (
-            <p className="my-[0.7em] text-foreground/90 leading-[1.65]" {...props}>
+            <p className="my-[0.7em] text-white/90 leading-[1.65]" {...props}>
               {children}
             </p>
           ),
-          // Bold and italic
           strong: ({ children, ...props }) => (
-            <strong className="font-bold text-foreground" {...props}>
+            <strong className="font-bold text-white" {...props}>
               {children}
             </strong>
           ),
           em: ({ children, ...props }) => (
-            <em className="italic text-foreground/90" {...props}>
+            <em className="italic text-white/90" {...props}>
               {children}
             </em>
           ),
-          // Blockquote styling
           blockquote: ({ children, ...props }) => (
             <blockquote
-              className="my-4 pl-4 border-l-4 border-border bg-foreground/5 py-2 pr-4 rounded-r-lg italic text-foreground/80"
+              className="my-4 pl-4 border-l-4 border-border bg-foreground/5 py-2 pr-4 rounded-r-lg italic text-white/80"
               {...props}
             >
               {children}
             </blockquote>
           ),
-          // Horizontal rule
           hr: (props) => (
             <hr className="my-6 border-t border-border" {...props} />
           )
@@ -258,18 +241,7 @@ function extractSources(text) {
   return urls;
 }
 
-function suggestFollowUps(prompt) {
-  if (!prompt) return [];
-  const base = prompt.split("?")[0].trim();
-  // Simple heuristic for demo purposes
-  return [
-    `Tell me more about ${base.split(' ').slice(-3).join(' ')}`,
-    `What are the alternatives?`,
-    `Explain it like I'm 5`
-  ];
-}
-
-// Memoized Message Row Component
+// Memoized Message Row Component - FIXED: Only show streaming status for the actual streaming message
 const MessageRow = React.memo(({
   msg,
   index,
@@ -279,15 +251,16 @@ const MessageRow = React.memo(({
   activityLabels,
   onMessageChange,
   onSend,
-  activeSession
+  activeSession,
+  onCopy
 }) => {
   const sources = msg.content ? extractSources(msg.content) : [];
   const hasActivities = Array.isArray(msg.activities) && msg.activities.length > 0;
+  const [copied, setCopied] = React.useState(false);
 
-  // Determine phase for streaming messages
+  // FIXED: Only show phase animation for the LAST assistant message AND when streaming
   let phase = null;
   if (isStreaming && isLastAssistant && msg.role === "assistant") {
-    // Show "thinking" immediately as the default starting state
     if (!hasActivities) {
       phase = showSearching ? "searching" : "thinking";
     } else if (msg.activities.includes("reasoning")) {
@@ -295,10 +268,15 @@ const MessageRow = React.memo(({
     } else if (msg.activities.includes("searching")) {
       phase = "searching";
     } else {
-      // Fallback to thinking if activities are present but none matches above
       phase = "thinking";
     }
   }
+
+  const handleCopy = () => {
+    navigator.clipboard?.writeText(msg.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <motion.div
@@ -306,22 +284,22 @@ const MessageRow = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "flex",
+        "flex w-full",
         msg.role === "user" ? "justify-end" : "justify-start"
       )}
     >
       {/* Message Content */}
       <div className={cn(
-        "flex flex-col gap-2 min-w-0",
+        "flex flex-col gap-2 min-w-0 w-full",
         msg.role === "user"
-          ? "items-end max-w-[88%] md:max-w-[85%]"
-          : "items-start max-w-[88%] md:max-w-[85%]"
+          ? "items-end max-w-[95%] md:max-w-[85%]"
+          : "items-start max-w-full md:max-w-[90%]"
       )}>
         <div className="font-medium text-sm text-muted-foreground mb-1">
           {msg.role === "user" ? "You" : "Vector"}
         </div>
 
-        {/* Status at TOP of message (Only visible during streaming) */}
+        {/* Status at TOP of message (Only visible during streaming for the actual streaming message) */}
         {phase && (
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <StreamingStatus phase={phase} />
@@ -338,55 +316,50 @@ const MessageRow = React.memo(({
           </div>
         )}
 
-        <div className={cn("text-base text-[#ECECEC]", msg.role === "user" && "text-right")}>
+        <div className={cn("text-base text-white w-full", msg.role === "user" && "text-right")}>
           {msg.role === "assistant" ? (
             <MarkdownContent content={msg.content} />
           ) : (
-            <div className="bg-[#2A2A2A] rounded-[12px] px-4 py-3 text-[#ECECEC]">
+            <div className="bg-[#2A2A2A] rounded-xl px-4 py-3 text-white inline-block max-w-full break-words">
               {msg.content}
             </div>
           )}
-          {isStreaming && isLastAssistant && (
+          {isStreaming && isLastAssistant && msg.role === "assistant" && (
             <span className="inline-block w-2 h-4 bg-muted-foreground/70 animate-pulse ml-1 align-bottom rounded-sm" />
           )}
         </div>
 
-        {/* Assistant Extras: Sources, Related */}
+        {/* Assistant Actions - FIXED: Full width, removed thumbs down */}
         {msg.role === "assistant" && msg.content && !isStreaming && (
-          <div className="mt-4 space-y-4 w-full mb-8">
+          <div className="mt-3 w-full">
             {/* Sources */}
             {sources.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 custom-scrollbar">
+              <div className="flex gap-2 overflow-x-auto pb-2 mb-3 custom-scrollbar">
                 {sources.map((item, idx) => (
                   <a
                     key={idx}
-                    href={item.url}
+                    href={item}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-shrink-0 flex flex-col justify-between w-32 h-20 p-2 rounded-[10px] bg-[#262626] transition-colors text-xs group"
+                    className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1E1E1E] border border-border/50 text-xs text-muted-foreground hover:text-white transition-colors"
                   >
-                    <div className="font-medium truncate text-[#B3B3B3] transition-colors">
-                      {item.title}
-                    </div>
-                    <div className="flex items-center gap-1 text-[#B3B3B3] opacity-70">
-                      <Globe size={10} />
-                      <span className="truncate">{new URL(item.url).hostname.replace('www.', '')}</span>
-                    </div>
+                    <Globe size={12} />
+                    <span className="truncate max-w-[120px]">{new URL(item).hostname.replace('www.', '')}</span>
                   </a>
                 ))}
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 mt-2 rounded-[8px] bg-[#262626] px-2 py-1 text-[#B3B3B3] opacity-70">
+            {/* Action Buttons - Full width bar */}
+            <div className="flex items-center gap-1 w-full rounded-lg bg-[#1E1E1E] border border-border/30 px-2 py-1.5">
               <ActionBtn
-                icon={<Copy size={14} />}
-                label="Copy"
-                onClick={() => navigator.clipboard.writeText(msg.content)}
+                icon={copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                label={copied ? "Copied" : "Copy"}
+                onClick={handleCopy}
               />
               <ActionBtn
                 icon={<RefreshCw size={14} />}
-                label="Regenerate"
+                label="Retry"
                 onClick={() => {
                   const lastUserMsg = [...(activeSession?.messages || [])]
                     .slice(0, index)
@@ -398,9 +371,6 @@ const MessageRow = React.memo(({
                   }
                 }}
               />
-              <div className="flex-1" />
-              <ActionBtn icon={<ThumbsUp size={14} />} label="Like" />
-              <ActionBtn icon={<ThumbsDown size={14} />} label="Dislike" />
             </div>
           </div>
         )}
@@ -487,28 +457,20 @@ export default function ChatArea({
     };
   }, [activeSession?.messages?.length, isStreaming, showSearching]);
 
-  const followUps = useMemo(() => {
-    const lastUserMsg = activeSession?.messages
-      .filter((entry) => entry.role === "user")
-      .pop();
-
-    return suggestFollowUps(lastUserMsg?.content || "");
-  }, [activeSession?.messages]);
-
   const isEmpty = !activeSession?.messages || activeSession.messages.length === 0;
 
   return (
     <div className="flex-1 flex flex-col h-full relative bg-card">
       {/* Mobile Header */}
-      <div className="md:hidden flex items-center p-4 border-b border-[rgba(255,255,255,0.04)] bg-card sticky top-0 z-10">
+      <div className="md:hidden flex items-center p-3 border-b border-border/30 bg-card sticky top-0 z-10">
         <button
           onClick={toggleSidebar}
-          className="p-2 -ml-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-lg"
+          className="p-2 -ml-2 text-muted-foreground hover:text-white focus-visible:outline-none rounded-lg"
           aria-label="Open sidebar"
         >
           <Menu size={20} />
         </button>
-        <span className="font-semibold text-sm ml-2 text-foreground">
+        <span className="font-semibold text-sm ml-2 text-white">
           Vector
         </span>
       </div>
@@ -518,17 +480,16 @@ export default function ChatArea({
         {isEmpty ? (
           /* Empty State / Hero Section */
           <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
-            <div className="w-16 h-16 rounded-2xl bg-foreground/5 border border-border flex items-center justify-center mb-6">
-              <Sparkles className="text-muted-foreground w-8 h-8" />
+            <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-foreground/5 border border-border flex items-center justify-center mb-6">
+              <Sparkles className="text-muted-foreground w-7 h-7 md:w-8 md:h-8" />
             </div>
-            <h1 className="text-3xl md:text-4xl font-display font-medium text-center mb-12 text-foreground">
+            <h1 className="text-2xl md:text-4xl font-display font-medium text-center mb-8 md:mb-12 text-white">
               Where knowledge begins
             </h1>
 
-            {/* Fake search bar for hero aesthetic - functionality is in the footer input though */}
-            <div className="w-full max-w-2xl">
+            <div className="w-full max-w-2xl px-2">
               <div className="relative group">
-                <div className="relative bg-[var(--input-surface)] border border-[var(--input-border)] rounded-[12px] transition-[border-color,background-color] duration-[120ms] ease-out focus-within:bg-[var(--input-surface-focus)] focus-within:border-[var(--input-border-focus)]">
+                <div className="relative bg-[var(--input-surface)] border border-[var(--input-border)] rounded-xl transition-[border-color,background-color] duration-[120ms] ease-out focus-within:bg-[var(--input-surface-focus)] focus-within:border-[var(--input-border-focus)]">
                   <SearchInput
                     value={message}
                     onChange={onMessageChange}
@@ -540,12 +501,11 @@ export default function ChatArea({
                 </div>
               </div>
 
-              <div className="mt-8 flex flex-wrap justify-center gap-2">
+              <div className="mt-6 md:mt-8 flex flex-wrap justify-center gap-2">
                 {[
                   "How does AI work?",
                   "Write a Python script",
-                  "Latest tech news",
-                  "Explain quantum physics"
+                  "Latest tech news"
                 ].map((suggestion) => (
                   <button
                     key={suggestion}
@@ -553,7 +513,7 @@ export default function ChatArea({
                       onMessageChange(suggestion);
                       setTimeout(() => onSend(), 100);
                     }}
-                    className="px-4 py-2 rounded-full border border-border bg-foreground/5 text-sm text-muted-foreground hover:bg-foreground/8 hover:text-foreground transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    className="px-3 py-2 md:px-4 rounded-full border border-border bg-foreground/5 text-xs md:text-sm text-muted-foreground hover:bg-foreground/8 hover:text-white transition-colors font-medium focus-visible:outline-none"
                   >
                     {suggestion}
                   </button>
@@ -563,7 +523,7 @@ export default function ChatArea({
           </div>
         ) : (
           /* Chat Messages */
-            <div className="mx-auto max-w-3xl w-full px-4 md:px-0 py-10 space-y-10">
+          <div className="mx-auto max-w-3xl w-full px-3 md:px-4 py-6 md:py-10 space-y-6 md:space-y-8">
             {activeSession?.messages.map((msg, index) => {
               const isLastAssistant =
                 msg.role === "assistant" &&
@@ -585,27 +545,7 @@ export default function ChatArea({
               );
             })}
 
-            {/* Follow-ups */}
-            {!isStreaming && followUps.length > 0 && (
-              <div className="pl-12 space-y-3 animate-in fade-in duration-500 mt-10">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Sparkles size={14} />
-                  <span>Related</span>
-                </div>
-                <div className="flex flex-col gap-2 w-full">
-                  {followUps.map((item, i) => (
-                    <button
-                      key={i}
-                      onClick={() => onSelectFollowUp(item)}
-                      className="text-left flex items-center justify-between p-3 rounded-[10px] bg-[#262626] transition-colors group w-full md:w-fit md:min-w-[300px] focus-visible:outline-none"
-                    >
-                      <span className="text-sm text-[#B3B3B3] group-hover:text-[#ECECEC]">{item}</span>
-                      <ArrowRight size={14} className="text-[#B3B3B3] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* REMOVED: Related/Follow-ups section */}
 
             <div ref={messagesEndRef} className="h-4" />
           </div>
@@ -614,9 +554,9 @@ export default function ChatArea({
 
       {/* Footer Input Area */}
       {!isEmpty && (
-        <div className="p-4 md:p-6 bg-card z-20">
+        <div className="p-3 md:p-6 bg-card z-20 border-t border-border/20">
           <div className="mx-auto max-w-3xl relative">
-            <div className="relative bg-[var(--input-surface)] border border-[var(--input-border)] rounded-[12px] transition-[border-color,background-color] duration-[120ms] ease-out focus-within:bg-[var(--input-surface-focus)] focus-within:border-[var(--input-border-focus)]">
+            <div className="relative bg-[var(--input-surface)] border border-[var(--input-border)] rounded-xl transition-[border-color,background-color] duration-[120ms] ease-out focus-within:bg-[var(--input-surface-focus)] focus-within:border-[var(--input-border-focus)]">
               <SearchInput
                 value={message}
                 onChange={onMessageChange}
@@ -625,9 +565,6 @@ export default function ChatArea({
                 features={features}
               />
             </div>
-            <p className="text-center text-xs text-muted-foreground/70 mt-3">
-              Powered by AR-47
-            </p>
           </div>
         </div>
       )}
@@ -643,8 +580,8 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
   const [selectedFiles, setSelectedFiles] = React.useState([]);
   const mediaRecorderRef = React.useRef(null);
   const audioChunksRef = React.useRef([]);
-  const maxTextareaHeight = isHero ? 120 : 180;
-  const minTextareaHeight = isHero ? 52 : 48;
+  const maxTextareaHeight = isHero ? 120 : 160;
+  const minTextareaHeight = isHero ? 48 : 44;
 
   useLayoutEffect(() => {
     const el = textareaRef.current;
@@ -671,7 +608,7 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
       handleSend();
     }
   };
-  
+
   const handleTextareaScroll = (e) => {
     const el = e.currentTarget;
     el.classList.add("scrolling");
@@ -686,7 +623,6 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
     if (files.length > 0) {
       setSelectedFiles(prev => [...prev, ...files]);
     }
-    // Reset input so same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -698,13 +634,11 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
 
   const handleMicClick = async () => {
     if (isRecording) {
-      // Stop recording
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
       }
       setIsRecording(false);
     } else {
-      // Start recording
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
@@ -728,22 +662,21 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
         setIsRecording(true);
       } catch (err) {
         console.error('Microphone access denied:', err);
-        alert('Microphone access was denied. Please enable it in your browser settings.');
       }
     }
   };
 
   return (
-    <div className="flex flex-col w-full gap-2">
+    <div className="flex flex-col w-full">
       {/* Selected files preview */}
       {selectedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-4 pt-3">
+        <div className="flex flex-wrap gap-2 px-3 pt-2 md:px-4 md:pt-3">
           {selectedFiles.map((file, index) => (
             <div
               key={index}
-              className="flex items-center gap-2 bg-foreground/10 rounded-lg px-2 py-1 text-xs text-foreground/80"
+              className="flex items-center gap-2 bg-foreground/10 rounded-lg px-2 py-1 text-xs text-white/80"
             >
-              <span className="truncate max-w-[150px]">{file.name}</span>
+              <span className="truncate max-w-[100px] md:max-w-[150px]">{file.name}</span>
               <button
                 onClick={() => removeFile(index)}
                 className="p-0.5 hover:bg-foreground/10 rounded"
@@ -756,7 +689,7 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
         </div>
       )}
 
-      <div className="flex items-center w-full px-4">
+      <div className="flex items-center w-full px-3 md:px-4">
         {/* File upload button */}
         {features.uploads && (
           <>
@@ -772,10 +705,10 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
               className={cn(
-                "p-2 rounded-xl transition-colors duration-200 flex items-center justify-center focus-visible:outline-none",
+                "p-2 rounded-lg transition-colors duration-200 flex items-center justify-center focus-visible:outline-none",
                 disabled
                   ? "text-muted-foreground/50 cursor-not-allowed"
-                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                  : "text-muted-foreground hover:text-white hover:bg-foreground/5"
               )}
               aria-label="Attach file"
               title="Attach file"
@@ -791,12 +724,12 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
             onClick={handleMicClick}
             disabled={disabled}
             className={cn(
-              "p-2 rounded-xl transition-colors duration-200 flex items-center justify-center focus-visible:outline-none",
+              "p-2 rounded-lg transition-colors duration-200 flex items-center justify-center focus-visible:outline-none",
               isRecording
                 ? "text-red-500 bg-red-500/10 animate-pulse"
                 : disabled
                   ? "text-muted-foreground/50 cursor-not-allowed"
-                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                  : "text-muted-foreground hover:text-white hover:bg-foreground/5"
             )}
             aria-label={isRecording ? "Stop recording" : "Start voice input"}
             title={isRecording ? "Stop recording" : "Voice input"}
@@ -814,23 +747,23 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
           placeholder={isHero ? "Ask anything..." : "Ask follow-up..."}
           aria-label={isHero ? "Ask anything" : "Message"}
           className={cn(
-            "chat-input flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-foreground resize-none custom-scrollbar",
+            "chat-input flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-white resize-none custom-scrollbar",
             isHero
-              ? "py-3 px-0 text-lg md:text-xl font-medium"
-              : "py-[14px] px-0 text-[14px] leading-5"
+              ? "py-3 px-2 text-base md:text-lg font-medium"
+              : "py-3 px-2 text-sm leading-5"
           )}
-          rows={isHero ? 1 : 1}
+          rows={1}
           style={{ minHeight: `${minTextareaHeight}px`, maxHeight: `${maxTextareaHeight}px` }}
         />
-        <div className="flex items-center gap-2 pr-2">
+        <div className="flex items-center gap-1 pr-1">
           <button
             onClick={handleSend}
             disabled={(!value.trim() && selectedFiles.length === 0) || disabled}
             className={cn(
-              "p-2 rounded-[10px] transition-[background-color] duration-[120ms] ease-out flex items-center justify-center focus-visible:outline-none",
+              "p-2 rounded-lg transition-colors duration-[120ms] flex items-center justify-center focus-visible:outline-none",
               value.trim() && !disabled
-                ? "bg-transparent text-[#22D3EE] hover:bg-foreground/5 hover:text-[#38E1F8] active:bg-foreground/8"
-                : "bg-transparent text-muted-foreground/60 cursor-not-allowed"
+                ? "text-primary hover:bg-foreground/5"
+                : "text-muted-foreground/40 cursor-not-allowed"
             )}
           >
             {disabled ? (
@@ -849,11 +782,11 @@ function ActionBtn({ icon, label, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1.5 px-2 py-1 rounded-[6px] text-xs font-medium text-[#B3B3B3] hover:text-[#ECECEC] transition-colors focus-visible:outline-none"
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-white hover:bg-foreground/5 transition-colors focus-visible:outline-none"
       aria-label={label}
     >
       {icon}
-      {label && <span>{label}</span>}
+      <span className="hidden sm:inline">{label}</span>
     </button>
   )
 }

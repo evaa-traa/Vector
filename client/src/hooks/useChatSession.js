@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createParser } from "eventsource-parser";
 
 const MAX_MESSAGES = 20;
+const REQUEST_TIMEOUT_MS = 60000; // 60 second timeout
 
 const MODES = [
   { id: "chat", label: "Chat Mode" },
@@ -113,6 +114,7 @@ export function useChatSession() {
   const [message, setMessage] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const abortRef = useRef(null);
+  const timeoutRef = useRef(null);
 
   const activeSession = sessions.find((item) => item.id === activeSessionId);
 
@@ -306,6 +308,32 @@ export function useChatSession() {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Set up timeout for the request
+    timeoutRef.current = setTimeout(() => {
+      if (isStreaming) {
+        controller.abort();
+        updateSession(activeSession.id, (session) => ({
+          ...session,
+          messages: session.messages.map((msg) =>
+            msg.id === assistantMessage.id && !msg.content
+              ? {
+                ...msg,
+                content: "Request timed out. The AI server may be slow or unavailable. Please check your connection and try again."
+              }
+              : msg
+          )
+        }));
+        setIsStreaming(false);
+      }
+    }, REQUEST_TIMEOUT_MS);
+
+    let hasReceivedData = false;
+
     try {
       const response = await fetch("/chat", {
         method: "POST",
@@ -326,7 +354,7 @@ export function useChatSession() {
       }
 
       if (!response.body) {
-        throw new Error("No stream");
+        throw new Error("No response received from server");
       }
 
       const reader = response.body.getReader();
@@ -344,6 +372,14 @@ export function useChatSession() {
         }
 
         if (eventName === "token") {
+          hasReceivedData = true;
+          // Reset timeout on receiving data
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = setTimeout(() => {
+              controller.abort();
+            }, REQUEST_TIMEOUT_MS);
+          }
           updateSession(activeSession.id, (session) => ({
             ...session,
             messages: session.messages.map((msg) =>
@@ -392,6 +428,11 @@ export function useChatSession() {
         parser.feed(decoder.decode(value, { stream: true }));
       }
     } catch (error) {
+      // Clear timeout on error
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
       if (error?.name === "AbortError") {
         updateSession(activeSession.id, (session) => ({
           ...session,
@@ -399,7 +440,9 @@ export function useChatSession() {
             msg.id === assistantMessage.id && !msg.content
               ? {
                 ...msg,
-                content: "Connection was interrupted while contacting Flowise. Please try again."
+                content: hasReceivedData
+                  ? "Response was interrupted. The partial response has been saved."
+                  : "Connection was interrupted. Please check your internet connection and try again."
               }
               : msg
           )
@@ -407,20 +450,31 @@ export function useChatSession() {
         setIsStreaming(false);
         return;
       }
+
+      // Network error handling
+      const isNetworkError = error?.message?.includes("fetch") ||
+        error?.message?.includes("network") ||
+        error?.message?.includes("Failed to fetch") ||
+        !navigator.onLine;
+
       updateSession(activeSession.id, (session) => ({
         ...session,
         messages: session.messages.map((msg) =>
           msg.id === assistantMessage.id
             ? {
               ...msg,
-              content:
-                error?.message ||
-                "Something went wrong. Please try again."
+              content: isNetworkError
+                ? "Unable to connect to the server. Please check your internet connection and try again."
+                : error?.message || "Something went wrong. Please try again."
             }
             : msg
         )
       }));
     } finally {
+      // Clear timeout on completion
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
       setIsStreaming(false);
     }
   }

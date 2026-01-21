@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "docx": "^9.5.1",
     "eventsource-parser": "^1.1.2",
     "framer-motion": "^12.27.1",
     "lucide-react": "^0.562.0",

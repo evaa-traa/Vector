@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ChatSidebar from "./components/ChatSidebar.jsx";
 import ChatArea from "./components/ChatArea.jsx";
+import LabsArea from "./components/LabsArea.jsx";
 import { useChatSession } from "./hooks/useChatSession.js";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -21,6 +22,7 @@ export default function App() {
     }
   );
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeView, setActiveView] = useState("chat"); // "chat" | "labs"
 
   const {
     models,
@@ -61,12 +63,14 @@ export default function App() {
     const onKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") {
         e.preventDefault();
-        handleNewChatRef.current?.();
+        if (activeView === "chat") {
+          handleNewChatRef.current?.();
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [activeView]);
 
   // Handle responsive sidebar
   useEffect(() => {
@@ -109,24 +113,35 @@ export default function App() {
         onToggleTheme={() =>
           setTheme((prev) => (prev === "dark" ? "light" : "dark"))
         }
+        activeView={activeView}
+        onNavigateToLabs={() => setActiveView("labs")}
+        onNavigateToChat={() => setActiveView("chat")}
       />
 
       <main className={cn(
         "relative flex-1 flex flex-col transition-all duration-300 ease-in-out h-full",
         sidebarOpen ? "md:ml-[280px]" : "ml-0"
       )}>
-        <ChatArea
-          activeSession={activeSession}
-          isStreaming={isStreaming}
-          message={message}
-          onMessageChange={setMessage}
-          onSend={handleSend}
-          onSelectFollowUp={setMessage}
-          activityLabels={ACTIVITY_LABELS}
-          toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          sidebarOpen={sidebarOpen}
-          features={selectedModel?.features || { uploads: false, stt: false }}
-        />
+        {activeView === "chat" ? (
+          <ChatArea
+            activeSession={activeSession}
+            isStreaming={isStreaming}
+            message={message}
+            onMessageChange={setMessage}
+            onSend={handleSend}
+            onSelectFollowUp={setMessage}
+            activityLabels={ACTIVITY_LABELS}
+            toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+            sidebarOpen={sidebarOpen}
+            features={selectedModel?.features || { uploads: false, stt: false }}
+          />
+        ) : (
+          <LabsArea
+            toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+            sidebarOpen={sidebarOpen}
+            selectedModelId={selectedModelId}
+          />
+        )}
       </main>
     </div>
   );
