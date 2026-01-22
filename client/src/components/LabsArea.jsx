@@ -21,6 +21,7 @@ import { twMerge } from "tailwind-merge";
 import { useLabsProjects } from "../hooks/useLabsProjects.js";
 import LabsEditor from "./LabsEditor.jsx";
 import { exportToWord } from "../utils/exportToWord.js";
+import { exportToPdf } from "../utils/exportToPdf.js";
 import { stripMetadata } from "../utils/contentUtils.js";
 
 function cn(...inputs) {
@@ -151,8 +152,10 @@ export default function LabsArea({
     const [showProjectList, setShowProjectList] = useState(true);
     const [saveStatus, setSaveStatus] = useState("saved");
     const [isImporting, setIsImporting] = useState(false);
+    const [showExportMenu, setShowExportMenu] = useState(false);
     const instructionRef = useRef(null);
     const importInputRef = useRef(null);
+    const exportMenuRef = useRef(null);
 
     // Handle document changes with save status
     const handleDocumentChange = useCallback((newContent) => {
@@ -277,8 +280,9 @@ export default function LabsArea({
     };
 
     // Handle Word export
-    const handleExport = async () => {
+    const handleExportWord = async () => {
         if (!activeProject?.document) return;
+        setShowExportMenu(false);
 
         try {
             await exportToWord(activeProject.document, activeProject.name);
@@ -287,6 +291,30 @@ export default function LabsArea({
             console.error("[Labs] Export error:", err);
         }
     };
+
+    // Handle PDF export
+    const handleExportPdf = async () => {
+        if (!activeProject?.document) return;
+        setShowExportMenu(false);
+
+        try {
+            await exportToPdf(activeProject.document, activeProject.name);
+        } catch (err) {
+            setError("Failed to export PDF");
+            console.error("[Labs] PDF Export error:", err);
+        }
+    };
+
+    // Close export menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+                setShowExportMenu(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     // Hide project list on mobile by default
     useEffect(() => {
@@ -433,19 +461,46 @@ export default function LabsArea({
                                         <span className="hidden sm:inline">Save</span>
                                     </button>
 
-                                    <button
-                                        onClick={handleExport}
-                                        disabled={!activeProject.document}
-                                        className={cn(
-                                            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                                            activeProject.document
-                                                ? "bg-primary/10 text-primary hover:bg-primary/20"
-                                                : "bg-foreground/5 text-muted-foreground/50 cursor-not-allowed"
-                                        )}
-                                    >
-                                        <Download size={14} />
-                                        <span className="hidden sm:inline">Export</span>
-                                    </button>
+                                    {/* Export Dropdown */}
+                                    <div className="relative" ref={exportMenuRef}>
+                                        <button
+                                            onClick={() => setShowExportMenu(!showExportMenu)}
+                                            disabled={!activeProject.document}
+                                            className={cn(
+                                                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                                                activeProject.document
+                                                    ? "bg-primary/10 text-primary hover:bg-primary/20"
+                                                    : "bg-foreground/5 text-muted-foreground/50 cursor-not-allowed"
+                                            )}
+                                        >
+                                            <Download size={14} />
+                                            <span className="hidden sm:inline">Export</span>
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {showExportMenu && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: -5 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -5 }}
+                                                    className="absolute right-0 top-full mt-1 bg-[#1E1E1E] border border-border rounded-lg shadow-xl z-50 min-w-[120px] overflow-hidden"
+                                                >
+                                                    <button
+                                                        onClick={handleExportWord}
+                                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-foreground/10 transition-colors"
+                                                    >
+                                                        📄 Word (.docx)
+                                                    </button>
+                                                    <button
+                                                        onClick={handleExportPdf}
+                                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-foreground/10 transition-colors"
+                                                    >
+                                                        📕 PDF (.pdf)
+                                                    </button>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
                                 </div>
                             </div>
 

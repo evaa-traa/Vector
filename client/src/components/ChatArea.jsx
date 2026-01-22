@@ -52,8 +52,46 @@ const markdownSchema = {
       ["target", "_blank"],
       ["rel", "noopener noreferrer"]
     ],
-    code: [...(defaultSchema.attributes?.code || []), "className"]
-  }
+    code: [...(defaultSchema.attributes?.code || []), "className"],
+    // Allow KaTeX elements and attributes
+    span: [
+      ...(defaultSchema.attributes?.span || []),
+      "className",
+      "style",
+      "aria-hidden"
+    ],
+    annotation: ["encoding"],
+    semantics: []
+  },
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    "math",
+    "annotation",
+    "semantics",
+    "mtext",
+    "mn",
+    "mo",
+    "mi",
+    "mspace",
+    "mover",
+    "munder",
+    "munderover",
+    "msup",
+    "msub",
+    "msubsup",
+    "mfrac",
+    "mroot",
+    "msqrt",
+    "mtable",
+    "mtr",
+    "mtd",
+    "mlabeledtr",
+    "mrow",
+    "menclose",
+    "mstyle",
+    "mpadded",
+    "mphantom"
+  ]
 };
 
 function MarkdownContent({ content }) {
@@ -459,11 +497,12 @@ export default function ChatArea({
     // Don't auto-scroll if user has scrolled up
     if (userScrolledRef.current) return;
 
-    // Smooth scroll to bottom
+    // Instant scroll to bottom during streaming to prevent jarring motion
+    // Use smooth scroll only when not streaming
     const scrollToBottom = () => {
       el.scrollTo({
         top: el.scrollHeight,
-        behavior: 'smooth'
+        behavior: isStreaming ? 'instant' : 'smooth'
       });
     };
 
