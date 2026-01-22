@@ -173,7 +173,7 @@ function parseInlineFormatting(text) {
         // Bold and italic: ***text***
         let match = remaining.match(/^\*\*\*(.+?)\*\*\*/);
         if (match) {
-            runs.push(new TextRun({ text: match[1], bold: true, italics: true }));
+            runs.push(new TextRun({ text: match[1], bold: true, italics: true, font: "Calibri" }));
             remaining = remaining.slice(match[0].length);
             continue;
         }
@@ -181,7 +181,7 @@ function parseInlineFormatting(text) {
         // Bold: **text** or __text__
         match = remaining.match(/^(\*\*|__)(.+?)(\*\*|__)/);
         if (match) {
-            runs.push(new TextRun({ text: match[2], bold: true }));
+            runs.push(new TextRun({ text: match[2], bold: true, font: "Calibri" }));
             remaining = remaining.slice(match[0].length);
             continue;
         }
@@ -189,7 +189,7 @@ function parseInlineFormatting(text) {
         // Italic: *text* or _text_
         match = remaining.match(/^(\*|_)(.+?)(\*|_)/);
         if (match) {
-            runs.push(new TextRun({ text: match[2], italics: true }));
+            runs.push(new TextRun({ text: match[2], italics: true, font: "Calibri" }));
             remaining = remaining.slice(match[0].length);
             continue;
         }
@@ -212,7 +212,8 @@ function parseInlineFormatting(text) {
             runs.push(new TextRun({
                 text: match[1],
                 color: "0563C1",
-                underline: {}
+                underline: {},
+                font: "Calibri"
             }));
             remaining = remaining.slice(match[0].length);
             continue;
@@ -221,13 +222,13 @@ function parseInlineFormatting(text) {
         // Regular text (take until next special character or end)
         match = remaining.match(/^[^*_`\[]+/);
         if (match) {
-            runs.push(new TextRun({ text: match[0] }));
+            runs.push(new TextRun({ text: match[0], font: "Calibri" }));
             remaining = remaining.slice(match[0].length);
             continue;
         }
 
         // Single special character that didn't match formatting
-        runs.push(new TextRun({ text: remaining[0] }));
+        runs.push(new TextRun({ text: remaining[0], font: "Calibri" }));
         remaining = remaining.slice(1);
     }
 
