@@ -53,12 +53,14 @@ export function useLabsProjects(modelId) {
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false); // Track if localStorage was loaded
 
   // Load projects when modelId changes
   useEffect(() => {
     if (!modelId) {
       setProjects([]);
       setActiveProjectId("");
+      setIsLoaded(false);
       return;
     }
     const loaded = loadProjects(modelId);
@@ -68,17 +70,18 @@ export function useLabsProjects(modelId) {
     } else {
       setActiveProjectId("");
     }
+    setIsLoaded(true); // Mark as loaded AFTER setting projects
   }, [modelId]);
 
-  // Persist projects to localStorage on change
+  // Persist projects to localStorage on change (only after initial load)
   useEffect(() => {
-    if (!modelId) return;
+    if (!modelId || !isLoaded) return;
     saveProjects(modelId, projects);
-  }, [modelId, projects]);
+  }, [modelId, projects, isLoaded]);
 
-  // Auto-select first project or create one if none exist
+  // Auto-select first project or create one if none exist (only after load)
   useEffect(() => {
-    if (!modelId) return;
+    if (!modelId || !isLoaded) return; // Wait for load to complete
     if (projects.length === 0) {
       const fresh = createProject();
       setProjects([fresh]);
@@ -86,7 +89,7 @@ export function useLabsProjects(modelId) {
     } else if (!activeProjectId || !projects.find(p => p.id === activeProjectId)) {
       setActiveProjectId(projects[0].id);
     }
-  }, [projects, activeProjectId, modelId]);
+  }, [projects, activeProjectId, modelId, isLoaded]);
 
   // Get active project
   const activeProject = useMemo(() => {
