@@ -6,7 +6,27 @@ import rehypeKatex from "rehype-katex";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { motion, AnimatePresence } from "framer-motion";
 import "katex/dist/katex.min.css";
-import { Eye, Edit3, Copy, Check, Sparkles, X, Loader2, Send } from "lucide-react";
+import {
+    Eye,
+    Edit3,
+    Copy,
+    Check,
+    Sparkles,
+    X,
+    Loader2,
+    Send,
+    Bold,
+    Italic,
+    Heading1,
+    Heading2,
+    List,
+    ListOrdered,
+    Code,
+    Link,
+    Quote,
+    Undo2,
+    Redo2
+} from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -26,6 +46,85 @@ const markdownSchema = {
         code: [...(defaultSchema.attributes?.code || []), "className"]
     }
 };
+
+/**
+ * Rich Text Formatting Toolbar
+ */
+function FormattingToolbar({ onFormat, disabled }) {
+    const tools = [
+        { icon: Bold, action: "bold", title: "Bold (Ctrl+B)", syntax: ["**", "**"] },
+        { icon: Italic, action: "italic", title: "Italic (Ctrl+I)", syntax: ["*", "*"] },
+        { icon: Heading1, action: "h1", title: "Heading 1", syntax: ["# ", ""] },
+        { icon: Heading2, action: "h2", title: "Heading 2", syntax: ["## ", ""] },
+        { icon: List, action: "ul", title: "Bullet List", syntax: ["- ", ""] },
+        { icon: ListOrdered, action: "ol", title: "Numbered List", syntax: ["1. ", ""] },
+        { icon: Code, action: "code", title: "Inline Code", syntax: ["`", "`"] },
+        { icon: Link, action: "link", title: "Link", syntax: ["[", "](url)"] },
+        { icon: Quote, action: "quote", title: "Blockquote", syntax: ["> ", ""] },
+    ];
+
+    return (
+        <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border bg-background/30">
+            {tools.map(({ icon: Icon, action, title, syntax }) => (
+                <button
+                    key={action}
+                    onClick={() => onFormat(syntax[0], syntax[1])}
+                    disabled={disabled}
+                    className={cn(
+                        "p-1.5 rounded-md text-muted-foreground transition-colors",
+                        disabled
+                            ? "opacity-40 cursor-not-allowed"
+                            : "hover:text-white hover:bg-foreground/10"
+                    )}
+                    title={title}
+                >
+                    <Icon size={16} />
+                </button>
+            ))}
+        </div>
+    );
+}
+
+/**
+ * Undo/Redo Controls
+ */
+function HistoryControls({ canUndo, canRedo, onUndo, onRedo, historyCount }) {
+    return (
+        <div className="flex items-center gap-1">
+            <button
+                onClick={onUndo}
+                disabled={!canUndo}
+                className={cn(
+                    "p-1.5 rounded-md transition-colors flex items-center gap-1",
+                    canUndo
+                        ? "text-muted-foreground hover:text-white hover:bg-foreground/10"
+                        : "text-muted-foreground/30 cursor-not-allowed"
+                )}
+                title="Undo"
+            >
+                <Undo2 size={14} />
+            </button>
+            <button
+                onClick={onRedo}
+                disabled={!canRedo}
+                className={cn(
+                    "p-1.5 rounded-md transition-colors",
+                    canRedo
+                        ? "text-muted-foreground hover:text-white hover:bg-foreground/10"
+                        : "text-muted-foreground/30 cursor-not-allowed"
+                )}
+                title="Redo"
+            >
+                <Redo2 size={14} />
+            </button>
+            {historyCount > 0 && (
+                <span className="text-xs text-muted-foreground/50 ml-1">
+                    {historyCount} snapshot{historyCount !== 1 ? 's' : ''}
+                </span>
+            )}
+        </div>
+    );
+}
 
 /**
  * Markdown preview component using same styling as chat
@@ -320,8 +419,11 @@ function SelectionToolbar({
     );
 }
 
+// Maximum history snapshots to keep
+const MAX_HISTORY = 50;
+
 /**
- * Document editor with edit/preview modes and selection-based AI editing
+ * Document editor with edit/preview modes, formatting toolbar, undo/redo, and AI editing
  */
 export default function LabsEditor({
     content,
@@ -333,8 +435,13 @@ export default function LabsEditor({
     const [mode, setMode] = useState("edit");
     const textareaRef = useRef(null);
     const containerRef = useRef(null);
-    const [localContent, setLocalContent] = useState(content);
+    const [localContent, setLocalContent] = useState(content || "");
     const debounceRef = useRef(null);
+
+    // Undo/Redo history
+    const [history, setHistory] = useState([]);
+    const [historyIndex, setHistoryIndex] = useState(-1);
+    const isUndoRedoRef = useRef(false);
 
     // Selection state
     const [selection, setSelection] = useState(null);
@@ -343,10 +450,54 @@ export default function LabsEditor({
 
     // Sync external content changes
     useEffect(() => {
-        setLocalContent(content);
+        if (content !== localContent && !isUndoRedoRef.current) {
+            setLocalContent(content || "");
+        }
+        isUndoRedoRef.current = false;
     }, [content]);
 
-    // Debounced save
+    // Save snapshot to history (called before AI edits and periodically)
+    const saveSnapshot = useCallback(() => {
+        setHistory(prev => {
+            // Remove any "future" states if we're not at the end
+            const newHistory = prev.slice(0, historyIndex + 1);
+            // Add current state
+            newHistory.push({
+                content: localContent,
+                timestamp: Date.now()
+            });
+            // Limit history size
+            if (newHistory.length > MAX_HISTORY) {
+                newHistory.shift();
+            }
+            return newHistory;
+        });
+        setHistoryIndex(prev => Math.min(prev + 1, MAX_HISTORY - 1));
+    }, [localContent, historyIndex]);
+
+    // Undo function
+    const handleUndo = useCallback(() => {
+        if (historyIndex > 0) {
+            isUndoRedoRef.current = true;
+            const prevState = history[historyIndex - 1];
+            setLocalContent(prevState.content);
+            onChange(prevState.content);
+            setHistoryIndex(prev => prev - 1);
+        }
+    }, [history, historyIndex, onChange]);
+
+    // Redo function
+    const handleRedo = useCallback(() => {
+        if (historyIndex < history.length - 1) {
+            isUndoRedoRef.current = true;
+            const nextState = history[historyIndex + 1];
+            setLocalContent(nextState.content);
+            onChange(nextState.content);
+            setHistoryIndex(prev => prev + 1);
+        }
+    }, [history, historyIndex, onChange]);
+
+    // Debounced save with snapshot
     const handleChange = useCallback((e) => {
         const value = e.target.value;
         setLocalContent(value);
@@ -357,8 +508,10 @@ export default function LabsEditor({
 
         debounceRef.current = setTimeout(() => {
             onChange(value);
-        }, 300);
-    }, [onChange]);
+            // Save snapshot every few seconds of inactivity
+            saveSnapshot();
+        }, 1000);
+    }, [onChange, saveSnapshot]);
 
     // Cleanup debounce on unmount
     useEffect(() => {
@@ -378,6 +531,42 @@ export default function LabsEditor({
         }
     }, [localContent, mode]);
 
+    // Handle formatting toolbar actions
+    const handleFormat = useCallback((prefix, suffix) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const selectedText = textarea.value.substring(start, end);
+
+        let newText;
+        let newCursorPos;
+
+        if (selectedText) {
+            // Wrap selected text
+            newText = textarea.value.substring(0, start) +
+                prefix + selectedText + suffix +
+                textarea.value.substring(end);
+            newCursorPos = end + prefix.length + suffix.length;
+        } else {
+            // Insert at cursor
+            newText = textarea.value.substring(0, start) +
+                prefix + suffix +
+                textarea.value.substring(end);
+            newCursorPos = start + prefix.length;
+        }
+
+        setLocalContent(newText);
+        onChange(newText);
+
+        // Restore cursor position
+        requestAnimationFrame(() => {
+            textarea.focus();
+            textarea.setSelectionRange(newCursorPos, newCursorPos);
+        });
+    }, [onChange]);
+
     // Handle text selection
     const handleSelect = useCallback(() => {
         const textarea = textareaRef.current;
@@ -388,10 +577,7 @@ export default function LabsEditor({
         const selectedText = textarea.value.substring(start, end);
 
         if (selectedText.length > 3) {
-            // Calculate position for toolbar
             const rect = textarea.getBoundingClientRect();
-
-            // Get position using a temporary span (approximation)
             const textBeforeSelection = textarea.value.substring(0, start);
             const lines = textBeforeSelection.split('\n');
             const currentLine = lines.length;
@@ -421,10 +607,11 @@ export default function LabsEditor({
     const handleSelectionEdit = async (instruction) => {
         if (!selection || !onSelectionEdit) return;
 
+        // Save snapshot before AI edit
+        saveSnapshot();
         setIsEditing(true);
 
         try {
-            // Get context around selection
             const contextBefore = localContent.substring(
                 Math.max(0, selection.start - 100),
                 selection.start
@@ -443,7 +630,6 @@ export default function LabsEditor({
             });
 
             if (replacement) {
-                // Apply the replacement
                 const newContent =
                     localContent.substring(0, selection.start) +
                     replacement +
@@ -460,6 +646,27 @@ export default function LabsEditor({
         }
     };
 
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKeyboard = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    handleRedo();
+                } else {
+                    handleUndo();
+                }
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+                e.preventDefault();
+                handleRedo();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyboard);
+        return () => document.removeEventListener('keydown', handleKeyboard);
+    }, [handleUndo, handleRedo]);
+
     // Close toolbar when clicking outside
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -472,9 +679,12 @@ export default function LabsEditor({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    const canUndo = historyIndex > 0;
+    const canRedo = historyIndex < history.length - 1;
+
     return (
         <div ref={containerRef} className="h-full flex flex-col relative">
-            {/* Mode Toggle */}
+            {/* Mode Toggle & History Controls */}
             <div className="flex items-center gap-1 px-4 py-2 border-b border-border bg-background/50">
                 <button
                     onClick={() => setMode("edit")}
@@ -501,24 +711,38 @@ export default function LabsEditor({
                     Preview
                 </button>
 
-                {/* Selection hint */}
-                {mode === "edit" && !selection && (
-                    <div className="ml-auto text-xs text-muted-foreground/60 hidden md:block">
-                        💡 Select text for AI editing
-                    </div>
-                )}
+                {/* Spacer */}
+                <div className="flex-1" />
 
+                {/* Undo/Redo */}
+                <HistoryControls
+                    canUndo={canUndo}
+                    canRedo={canRedo}
+                    onUndo={handleUndo}
+                    onRedo={handleRedo}
+                    historyCount={history.length}
+                />
+
+                {/* Status */}
                 {(isProcessing || isEditing) && (
-                    <div className="ml-auto flex items-center gap-2 text-primary text-sm">
+                    <div className="flex items-center gap-2 text-primary text-sm ml-2">
                         <motion.div
                             animate={{ rotate: 360 }}
                             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                             className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full"
                         />
-                        <span>{isEditing ? "Editing selection..." : "AI is working..."}</span>
+                        <span>{isEditing ? "Editing..." : "AI working..."}</span>
                     </div>
                 )}
             </div>
+
+            {/* Formatting Toolbar (only in edit mode) */}
+            {mode === "edit" && (
+                <FormattingToolbar
+                    onFormat={handleFormat}
+                    disabled={isProcessing || isEditing}
+                />
+            )}
 
             {/* Editor/Preview Area */}
             <div className="flex-1 overflow-auto custom-scrollbar">
@@ -540,7 +764,7 @@ You can use Markdown formatting:
 > Blockquotes
 `inline code`
 
-💡 Tip: Select any text and click 'AI Edit' to make surgical changes!"
+💡 Tip: Use the toolbar above or select text for AI editing!"
                         disabled={isProcessing || isEditing}
                         className={cn(
                             "w-full min-h-full p-6 bg-transparent outline-none resize-none text-white font-mono text-sm leading-relaxed",
