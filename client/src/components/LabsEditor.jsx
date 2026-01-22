@@ -43,8 +43,46 @@ const markdownSchema = {
             ["target", "_blank"],
             ["rel", "noopener noreferrer"]
         ],
-        code: [...(defaultSchema.attributes?.code || []), "className"]
-    }
+        code: [...(defaultSchema.attributes?.code || []), "className"],
+        // Allow KaTeX elements and attributes
+        span: [
+            ...(defaultSchema.attributes?.span || []),
+            "className",
+            "style",
+            "aria-hidden"
+        ],
+        annotation: ["encoding"],
+        semantics: []
+    },
+    tagNames: [
+        ...(defaultSchema.tagNames || []),
+        "math",
+        "annotation",
+        "semantics",
+        "mtext",
+        "mn",
+        "mo",
+        "mi",
+        "mspace",
+        "mover",
+        "munder",
+        "munderover",
+        "msup",
+        "msub",
+        "msubsup",
+        "mfrac",
+        "mroot",
+        "msqrt",
+        "mtable",
+        "mtr",
+        "mtd",
+        "mlabeledtr",
+        "mrow",
+        "menclose",
+        "mstyle",
+        "mpadded",
+        "mphantom"
+    ]
 };
 
 /**
