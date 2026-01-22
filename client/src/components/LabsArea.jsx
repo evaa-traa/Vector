@@ -217,7 +217,8 @@ export default function LabsArea({
                     instruction,
                     contextBefore,
                     contextAfter,
-                    modelId
+                    modelId,
+                    sessionId: activeProject?.sessionId
                 })
             });
 

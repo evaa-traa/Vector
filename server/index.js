@@ -546,7 +546,8 @@ app.post("/chat", async (req, res) => {
 
 // Labs AI editing endpoint - generates or edits documents based on instruction
 app.post("/labs-edit", async (req, res) => {
-  const { document, instruction, modelId } = req.body || {};
+  const { document, instruction, modelId, sessionId } = req.body || {};
+  const safeSessionId = typeof sessionId === "string" && sessionId.trim() ? sessionId.trim().slice(0, 128) : "";
 
   if (!instruction || typeof instruction !== "string" || instruction.length > 10000) {
     return res.status(400).json({ error: "Invalid instruction" });
@@ -598,7 +599,7 @@ Apply the instruction to edit the document. Return ONLY the updated document con
       model,
       message: editPrompt,
       mode: "chat",
-      sessionId: "",
+      sessionId: safeSessionId,
       uploads: [],
       signal: controller.signal
     });
@@ -615,7 +616,8 @@ Apply the instruction to edit the document. Return ONLY the updated document con
 
 // Labs selection-based AI editing - edits only the selected portion
 app.post("/labs-edit-selection", async (req, res) => {
-  const { selectedText, instruction, contextBefore, contextAfter, modelId } = req.body || {};
+  const { selectedText, instruction, contextBefore, contextAfter, modelId, sessionId } = req.body || {};
+  const safeSessionId = typeof sessionId === "string" && sessionId.trim() ? sessionId.trim().slice(0, 128) : "";
 
   if (!selectedText || typeof selectedText !== "string") {
     return res.status(400).json({ error: "No text selected" });
@@ -673,7 +675,7 @@ CRITICAL: Return ONLY the replacement text for the selection. Do not include con
       model,
       message: editPrompt,
       mode: "chat",
-      sessionId: "",
+      sessionId: safeSessionId,
       uploads: [],
       signal: controller.signal
     });

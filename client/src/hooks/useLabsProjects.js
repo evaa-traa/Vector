@@ -36,6 +36,7 @@ function saveProjects(modelId, projects) {
 function createProject(name = "Untitled Project", document = "") {
   return {
     id: crypto.randomUUID(),
+    sessionId: crypto.randomUUID(), // Unique Flowise session per project
     name,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -188,7 +189,8 @@ export function useLabsProjects(modelId) {
         body: JSON.stringify({
           document: activeProject.document,
           instruction,
-          modelId: modelIdForAI
+          modelId: modelIdForAI,
+          sessionId: activeProject.sessionId
         })
       });
 
