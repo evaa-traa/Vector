@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, Edit3, Copy, Check, Sparkles, X, Loader2, Send } from "lucide-react";
 import { clsx } from "clsx";
@@ -47,8 +50,8 @@ function MarkdownPreview({ content }) {
     return (
         <div className="markdown-content prose prose-invert max-w-none px-6 py-4">
             <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[[rehypeSanitize, markdownSchema]]}
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex, [rehypeSanitize, markdownSchema]]}
                 components={{
                     a: (props) => (
                         <a

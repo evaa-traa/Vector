@@ -2,6 +2,9 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   SendHorizontal,
@@ -65,8 +68,8 @@ function MarkdownContent({ content }) {
   return (
     <div className="markdown-content prose prose-invert max-w-none">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypeSanitize, markdownSchema]]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex, [rehypeSanitize, markdownSchema]]}
         transformLinkUri={sanitizeLinkUrl}
         transformImageUri={sanitizeLinkUrl}
         components={{
@@ -595,22 +598,42 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
   const maxTextareaHeight = isHero ? 100 : 120;
   const minTextareaHeight = 44;
 
+  // Local state for immediate feedback on mobile
+  const [localValue, setLocalValue] = React.useState(value);
+
+  // Sync local value when prop changes (e.g. cleared after send)
+  React.useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
   useLayoutEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
 
+    // Reset height to auto to get correct scrollHeight
     el.style.height = "0px";
     const unclamped = el.scrollHeight;
     const next = Math.max(minTextareaHeight, Math.min(unclamped, maxTextareaHeight));
     el.style.height = `${next}px`;
     el.style.overflowY = unclamped > maxTextareaHeight ? "auto" : "hidden";
-  }, [value, isHero, maxTextareaHeight, minTextareaHeight]);
+  }, [localValue, isHero, maxTextareaHeight, minTextareaHeight]);
+
+  const handleLocalChange = (newValue) => {
+    setLocalValue(newValue);
+    // Debounce the parent update to avoid lag
+    // Using a simple timeout
+    if (window.updateTimeout) clearTimeout(window.updateTimeout);
+    window.updateTimeout = setTimeout(() => {
+      onChange(newValue);
+    }, 5); // Very short debounce, mostly to decouple the render cycle
+  };
 
   const handleSend = () => {
-    if ((value.trim() || selectedFiles.length > 0) && !disabled) {
+    if ((localValue.trim() || selectedFiles.length > 0) && !disabled) {
       onSend(selectedFiles);
       setSelectedFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      // Local value will be cleared by the useEffect when parent value becomes empty
     }
   };
 
@@ -730,8 +753,8 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
         {/* Text input */}
         <textarea
           ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+          value={localValue}
+          onChange={(e) => handleLocalChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onScroll={handleTextareaScroll}
           placeholder="Ask anything"
@@ -764,10 +787,10 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
           {/* Send button */}
           <button
             onClick={handleSend}
-            disabled={(!value.trim() && selectedFiles.length === 0) || disabled}
+            disabled={(!localValue.trim() && selectedFiles.length === 0) || disabled}
             className={cn(
               "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
-              (value.trim() || selectedFiles.length > 0) && !disabled
+              (localValue.trim() || selectedFiles.length > 0) && !disabled
                 ? "bg-[#4A4A4A] text-white hover:bg-[#5A5A5A]"
                 : "bg-[#3A3A3A] text-muted-foreground/40 cursor-not-allowed"
             )}

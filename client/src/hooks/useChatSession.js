@@ -360,6 +360,11 @@ export function useChatSession() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
+      const streamingRef = {
+        content: "",
+        lastUpdate: Date.now()
+      };
+
       const parser = createParser((event) => {
         if (event.type !== "event") return;
         const eventName = event.event || "";
@@ -373,21 +378,38 @@ export function useChatSession() {
 
         if (eventName === "token") {
           hasReceivedData = true;
-          // Reset timeout on receiving data
           if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
             timeoutRef.current = setTimeout(() => {
               controller.abort();
             }, REQUEST_TIMEOUT_MS);
           }
-          updateSession(activeSession.id, (session) => ({
-            ...session,
-            messages: session.messages.map((msg) =>
-              msg.id === assistantMessage.id
-                ? { ...msg, content: msg.content + (parsed.text || "") }
-                : msg
-            )
-          }));
+
+          streamingRef.content += (parsed.text || "");
+
+          // Throttled update: only update state every 50ms
+          const now = Date.now();
+          if (now - streamingRef.lastUpdate > 50) {
+            streamingRef.lastUpdate = now;
+            updateSession(activeSession.id, (session) => ({
+              ...session,
+              messages: session.messages.map((msg) =>
+                msg.id === assistantMessage.id
+                  ? { ...msg, content: msg.content + streamingRef.content }
+                  : msg
+              )
+            }));
+            // Clear buffer after applying to state? 
+            // NO. The state update function uses "msg.content + streamingRef.content".
+            // If I clear streamingRef.content, I might miss data if state update was based on old state?
+            // "msg" in map is from "session" passed to updater.
+            // If I just keep appending to a local variable `streamingRef.content` (accumulated total) and set that?
+            // "assistantMessage.id" content was initialized to empty.
+            // So if I track TOTAL content in a variable, I can just SET content.
+            streamingRef.content = ""; // Wait, my logic above was msg.content + streamingRef.content.
+            // This implies streamingRef.content is the DELTA.
+            // CORRECT. 
+          }
         }
 
         if (eventName === "activity") {
@@ -422,23 +444,36 @@ export function useChatSession() {
         }
       });
 
-      // Force React to update on each chunk by using a render trigger
-      let renderCounter = 0;
+      // We need to track the accumulation in a way that works with the throttled updates.
+      // Easiest is to keep a 'pendingDelta' and apply it.
+      let pendingDelta = "";
+      let lastUpdate = Date.now();
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
+      // Redefine parser logic closer to simple imperative style for the delta
+      const handleToken = (text) => {
+        pendingDelta += text;
+        const now = Date.now();
+        if (now - lastUpdate > 30) {
+          const chunk = pendingDelta;
+          pendingDelta = "";
+          lastUpdate = now;
 
-        const chunk = decoder.decode(value, { stream: true });
-        parser.feed(chunk);
-
-        // Force a re-render every few chunks to show streaming
-        renderCounter++;
-        if (renderCounter % 3 === 0) {
-          // Trigger a state update to force re-render
-          setSessions(prev => [...prev]);
+          updateSession(activeSession.id, (session) => ({
+            ...session,
+            messages: session.messages.map((msg) =>
+              msg.id === assistantMessage.id
+                ? { ...msg, content: msg.content + chunk }
+                : msg
+            )
+          }));
         }
-      }
+      };
+
+      // Wait, I can't easily change the parser callback structure inside ReplaceFileContent if I don't replace the whole thing.
+      // I will replace lines 363-441 with the NEW parser and loop logic.
+
+      // I will use a simple accumulator.
+
 
       // Final update to ensure everything is saved
       setSessions(prev => [...prev]);
