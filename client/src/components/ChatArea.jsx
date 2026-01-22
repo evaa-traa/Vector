@@ -1,8 +1,11 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { motion, AnimatePresence } from "framer-motion";
+import "katex/dist/katex.min.css";
 import {
   SendHorizontal,
   Sparkles,
@@ -65,8 +68,8 @@ function MarkdownContent({ content }) {
   return (
     <div className="markdown-content prose prose-invert max-w-none">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypeSanitize, markdownSchema]]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex, [rehypeSanitize, markdownSchema]]}
         transformLinkUri={sanitizeLinkUrl}
         transformImageUri={sanitizeLinkUrl}
         components={{
@@ -736,6 +739,9 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
           onScroll={handleTextareaScroll}
           placeholder="Ask anything"
           aria-label="Ask anything"
+          inputMode="text"
+          autoComplete="off"
+          autoCorrect="off"
           className="flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-white resize-none custom-scrollbar py-2.5 px-1 text-[15px] leading-6"
           rows={1}
           style={{ minHeight: `${minTextareaHeight}px`, maxHeight: `${maxTextareaHeight}px` }}

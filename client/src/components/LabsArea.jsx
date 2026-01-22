@@ -21,6 +21,7 @@ import { twMerge } from "tailwind-merge";
 import { useLabsProjects } from "../hooks/useLabsProjects.js";
 import LabsEditor from "./LabsEditor.jsx";
 import { exportToWord } from "../utils/exportToWord.js";
+import { stripMetadata } from "../utils/contentUtils.js";
 
 function cn(...inputs) {
     return twMerge(clsx(inputs));
@@ -260,7 +261,7 @@ export default function LabsArea({
                 }
             }
 
-            return fullContent;
+            return stripMetadata(fullContent);
         } catch (error) {
             console.error("[Labs] Selection edit failed:", error);
             setError(error.message || "Failed to edit selection");

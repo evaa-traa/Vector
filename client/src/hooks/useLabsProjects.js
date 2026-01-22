@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { stripMetadata } from "../utils/contentUtils.js";
 
 const STORAGE_KEY_PREFIX = "labs_projects_";
 
@@ -237,9 +238,10 @@ export function useLabsProjects(modelId) {
         }
       }
 
-      // Update project with new document
+      // Update project with new document (filtered of metadata)
       if (fullContent) {
-        handleUpdateDocument(fullContent);
+        const cleanedContent = stripMetadata(fullContent);
+        handleUpdateDocument(cleanedContent);
       }
 
       return fullContent;
