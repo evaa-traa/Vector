@@ -355,21 +355,3 @@
     padding: 0 4px;
   }
 }
-
-/* Scroll anchoring for streaming */
-.chat-messages-container {
-  overflow-anchor: auto;
-}
-
-/* KaTeX overrides for dark mode */
-.katex {
-  color: inherit !important;
-  font-size: 1.1em !important;
-}
-
-.katex-display {
-  margin: 1em 0 !important;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0.5em 0;
-}
