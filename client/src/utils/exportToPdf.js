@@ -122,6 +122,39 @@ function markdownToHtml(markdown) {
     // Links
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #4a90d9; text-decoration: underline;">$1</a>');
 
+    // Tables - parse markdown tables to HTML tables
+    html = html.replace(/^(\|.+\|)\r?\n(\|[-:| ]+\|)\r?\n((?:\|.+\|\r?\n?)+)/gm, (match, headerRow, separatorRow, bodyRows) => {
+        // Parse header cells
+        const headers = headerRow.split('|').slice(1, -1).map(h => h.trim());
+
+        // Parse alignment from separator row
+        const alignments = separatorRow.split('|').slice(1, -1).map(sep => {
+            const s = sep.trim();
+            if (s.startsWith(':') && s.endsWith(':')) return 'center';
+            if (s.endsWith(':')) return 'right';
+            return 'left';
+        });
+
+        // Create header HTML
+        const headerHtml = headers.map((h, i) =>
+            `<th style="border: 1px solid #ddd; padding: 10px 12px; text-align: ${alignments[i] || 'left'}; background: #f5f5f5; font-weight: 600;">${h}</th>`
+        ).join('');
+
+        // Parse and create body rows
+        const rows = bodyRows.trim().split('\n').map((row, rowIdx) => {
+            const cells = row.split('|').slice(1, -1).map(c => c.trim());
+            const cellsHtml = cells.map((c, i) =>
+                `<td style="border: 1px solid #ddd; padding: 8px 12px; text-align: ${alignments[i] || 'left'};">${c}</td>`
+            ).join('');
+            return `<tr style="background: ${rowIdx % 2 === 0 ? '#fff' : '#fafafa'};">${cellsHtml}</tr>`;
+        }).join('');
+
+        return `<table style="border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 11pt;">
+            <thead><tr>${headerHtml}</tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+    });
+
     // Paragraphs (handle line breaks)
     html = html.replace(/\n\n/g, '</p><p style="margin: 10px 0;">');
     html = html.replace(/\n/g, '<br>');
