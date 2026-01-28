@@ -154,31 +154,6 @@ export default function ChatSidebar({
               </button>
             )}
 
-            {/* Modes - only in chat view */}
-            {activeView === "chat" && (
-              <div className="space-y-4 mb-6">
-                <div className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                  <span>Mode</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-foreground/5 rounded-lg border border-border">
-                  {modes.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => onModeChange(item.id)}
-                      className={cn(
-                        "flex items-center justify-center px-3 py-2 rounded-md text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                        mode === item.id
-                          ? "bg-foreground/10 text-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
-                      )}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Models Selection */}
             <div className="mb-6 space-y-2">
               <div className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
@@ -268,34 +243,37 @@ export default function ChatSidebar({
                   Recent
                 </div>
                 <div className="space-y-1">
-                  {historyList.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/70 gap-2">
-                      <MessageSquare size={24} className="opacity-20" />
-                      <span className="text-xs">No history yet</span>
-                    </div>
-                  ) : (
-                    historyList.map((session) => (
-                      <button
-                        key={session.id}
-                        onClick={() => onSelectSession(session.id)}
-                        className={cn(
-                          "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors group flex items-center gap-3 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                          activeSessionId === session.id
-                            ? "bg-[#202338] text-foreground"
-                            : "text-muted-foreground hover:bg-[#1A1D29] hover:text-foreground"
-                        )}
-                      >
-                        {activeSessionId === session.id && (
-                          <span className="absolute left-0 top-2 bottom-2 w-[2px] bg-[#22D3EE] rounded-full" />
-                        )}
-                        <MessageSquare size={16} className={cn(
-                          "shrink-0 transition-colors",
-                          activeSessionId === session.id ? "text-foreground" : "text-muted-foreground/70 group-hover:text-muted-foreground"
-                        )} />
-                        <span className="truncate flex-1 z-10 relative">{session.title || "New Thread"}</span>
-                      </button>
-                    ))
-                  )}
+                  {(() => {
+                    console.log('[ChatSidebar] historyList:', historyList, 'length:', historyList?.length);
+                    return historyList.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/70 gap-2">
+                        <MessageSquare size={24} className="opacity-20" />
+                        <span className="text-xs">No history yet</span>
+                      </div>
+                    ) : (
+                      historyList.map((session) => (
+                        <button
+                          key={session.id}
+                          onClick={() => onSelectSession(session.id)}
+                          className={cn(
+                            "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors group flex items-center gap-3 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                            activeSessionId === session.id
+                              ? "bg-[#202338] text-foreground"
+                              : "text-muted-foreground hover:bg-[#1A1D29] hover:text-foreground"
+                          )}
+                        >
+                          {activeSessionId === session.id && (
+                            <span className="absolute left-0 top-2 bottom-2 w-[2px] bg-[#22D3EE] rounded-full" />
+                          )}
+                          <MessageSquare size={16} className={cn(
+                            "shrink-0 transition-colors",
+                            activeSessionId === session.id ? "text-foreground" : "text-muted-foreground/70 group-hover:text-muted-foreground"
+                          )} />
+                          <span className="truncate flex-1 z-10 relative">{session.title || "New Thread"}</span>
+                        </button>
+                      ))
+                    );
+                  })()}
                 </div>
               </div>
             )}
