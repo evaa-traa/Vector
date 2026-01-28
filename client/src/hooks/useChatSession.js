@@ -5,8 +5,7 @@ const MAX_MESSAGES = 20;
 const REQUEST_TIMEOUT_MS = 60000; // 60 second timeout
 
 const MODES = [
-  { id: "chat", label: "Chat Mode" },
-  { id: "research", label: "Research Mode" }
+  { id: "chat", label: "Chat Mode" }
 ];
 
 const ACTIVITY_LABELS = {
@@ -432,11 +431,13 @@ export function useChatSession() {
         const chunk = decoder.decode(value, { stream: true });
         parser.feed(chunk);
 
-        // Force a re-render every few chunks to show streaming
+        // Batch updates more efficiently - reduce render frequency for better performance
         renderCounter++;
-        if (renderCounter % 3 === 0) {
-          // Trigger a state update to force re-render
-          setSessions(prev => [...prev]);
+        if (renderCounter % 6 === 0) {
+          // Use requestAnimationFrame for smoother streaming updates
+          requestAnimationFrame(() => {
+            setSessions(prev => [...prev]);
+          });
         }
       }
 

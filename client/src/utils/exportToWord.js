@@ -255,7 +255,8 @@ function elementsToDocx(elements) {
                 children.push(
                     new Paragraph({
                         heading: headingLevels[el.level] || HeadingLevel.HEADING_1,
-                        children: parseInlineFormatting(el.content)
+                        children: parseInlineFormatting(el.content),
+                        spacing: { before: 280, after: 120 }
                     })
                 );
                 break;
@@ -264,17 +265,18 @@ function elementsToDocx(elements) {
                 children.push(
                     new Paragraph({
                         children: parseInlineFormatting(el.content),
-                        spacing: { after: 200 }
+                        spacing: { after: 280, line: 276 }
                     })
                 );
                 break;
 
             case "bulletList":
-                for (const item of el.items) {
+                for (let i = 0; i < el.items.length; i++) {
                     children.push(
                         new Paragraph({
                             bullet: { level: 0 },
-                            children: parseInlineFormatting(item)
+                            children: parseInlineFormatting(el.items[i]),
+                            spacing: { after: i === el.items.length - 1 ? 200 : 60 }
                         })
                     );
                 }
@@ -285,7 +287,8 @@ function elementsToDocx(elements) {
                     children.push(
                         new Paragraph({
                             numbering: { reference: "default-numbering", level: 0 },
-                            children: parseInlineFormatting(el.items[idx])
+                            children: parseInlineFormatting(el.items[idx]),
+                            spacing: { after: idx === el.items.length - 1 ? 200 : 60 }
                         })
                     );
                 }

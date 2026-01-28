@@ -36,33 +36,33 @@
   }
 
   .light {
-    /* Clean Professional Light Mode */
-    --background: 0 0% 100%;
-    --foreground: 240 10% 4%;
+    /* Modern Professional Light Mode - Enhanced Contrast */
+    --background: 0 0% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 4%;
-    --popover: 0 0% 98%;
-    --popover-foreground: 240 10% 4%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
     --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 222 47% 11%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 0 0% 90%;
-    --input: 0 0% 95%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 85%;
+    --input: 220 14% 96%;
     --ring: 221.2 83.2% 53.3%;
-    --input-surface: #F5F5F5;
-    --input-surface-focus: #F0F0F0;
-    --input-border: #E0E0E0;
-    --input-border-focus: #D0D0D0;
-    --placeholder-color: rgba(0, 0, 0, 0.4);
-    --scrollbar-thumb: rgba(0, 0, 0, 0.12);
-    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.18);
+    --input-surface: #FFFFFF;
+    --input-surface-focus: #F8FAFC;
+    --input-border: #CBD5E1;
+    --input-border-focus: #94A3B8;
+    --placeholder-color: #64748B;
+    --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
   }
 }
 
@@ -148,12 +148,14 @@
 }
 
 .light .floating-input-bar {
-  background: #F0F0F0;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
 }
 
 .light .floating-input-bar:focus-within {
-  background: #E8E8E8;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  background: #FFFFFF;
+  border-color: #94A3B8;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 
@@ -331,6 +333,23 @@
 
 /* Mobile optimizations */
 @media (max-width: 768px) {
+
+  /* Fix mobile viewport height issues */
+  html,
+  body {
+    height: 100%;
+    height: 100dvh;
+    /* Dynamic viewport height for mobile browsers */
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  #root {
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
   .markdown-content pre {
     font-size: 12px;
     padding: 12px;
@@ -359,5 +378,11 @@
 
   .refined-input-container {
     padding: 0 4px;
+  }
+
+  /* Ensure input bar is always visible */
+  .floating-input-bar {
+    position: relative;
+    z-index: 20;
   }
 }

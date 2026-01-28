@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { stripMetadata } from "../utils/contentUtils.js";
 
+// Per-model storage - each model has its own projects (aligned with Flowise chatflow history)
 const STORAGE_KEY_PREFIX = "labs_projects_";
 
 /**
@@ -47,7 +48,8 @@ function createProject(name = "Untitled Project", document = "") {
 
 /**
  * Hook for managing Labs projects with localStorage persistence.
- * Projects are stored per-model, just like chat history.
+ * Projects are stored per-model, just like chat history - this keeps
+ * project context aligned with Flowise chatflow conversation history.
  * @param {string} modelId - The currently selected model ID
  */
 export function useLabsProjects(modelId) {
