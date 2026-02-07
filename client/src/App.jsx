@@ -23,6 +23,7 @@ export default function App() {
   );
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState("chat"); // "chat" | "labs"
+  const [labsProjectLocked, setLabsProjectLocked] = useState(false); // Track labs project lock
 
   const {
     models,
@@ -110,7 +111,7 @@ export default function App() {
         historyList={historyList}
         activeSessionId={activeSessionId}
         onSelectSession={handleSelectSession}
-        isSessionLocked={isSessionLocked}
+        isSessionLocked={activeView === "labs" ? labsProjectLocked : isSessionLocked}
         theme={theme}
         onToggleTheme={() =>
           setTheme((prev) => (prev === "dark" ? "light" : "dark"))
@@ -142,6 +143,9 @@ export default function App() {
             toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
             sidebarOpen={sidebarOpen}
             selectedModelId={selectedModelId}
+            onModelChange={setSelectedModelId}
+            models={models}
+            onProjectLockChange={setLabsProjectLocked}
           />
         )}
       </main>

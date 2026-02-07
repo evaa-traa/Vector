@@ -108,12 +108,16 @@ export function useChatSession() {
   const [activeSessionId, setActiveSessionId] = useState("");
   const [message, setMessage] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [isSessionLocked, setIsSessionLocked] = useState(false); // Lock when viewing old session
   const abortRef = useRef(null);
   const timeoutRef = useRef(null);
   const initialLoadDone = useRef(false);
 
   const activeSession = sessions.find((item) => item.id === activeSessionId);
+
+  // Session is locked as soon as it has any messages - this disables model switching
+  const isSessionLocked = useMemo(() => {
+    return activeSession?.messages?.length > 0;
+  }, [activeSession?.messages?.length]);
 
   useEffect(() => {
     let isMounted = true;
@@ -193,7 +197,6 @@ export function useChatSession() {
       // If the stored session has a modelId, switch to it
       if (stored[0].modelId) {
         setSelectedModelId(stored[0].modelId);
-        setIsSessionLocked(true);
       }
     }
   }, []);
@@ -204,7 +207,6 @@ export function useChatSession() {
       const fresh = createSession(mode, selectedModelId);
       setSessions([fresh]);
       setActiveSessionId(fresh.id);
-      setIsSessionLocked(false);
     }
   }, [sessions.length, selectedModelId, mode]);
 
@@ -234,12 +236,9 @@ export function useChatSession() {
     const session = sessions.find(s => s.id === sessionId);
     if (session) {
       setActiveSessionId(sessionId);
-      // If the session has messages (not empty), lock to its model
-      if (session.modelId && session.messages && session.messages.length > 0) {
+      // If the session has a modelId, switch to it
+      if (session.modelId) {
         setSelectedModelId(session.modelId);
-        setIsSessionLocked(true);
-      } else {
-        setIsSessionLocked(false);
       }
     }
   }
@@ -257,7 +256,6 @@ export function useChatSession() {
     setSessions((prev) => [fresh, ...prev]);
     setActiveSessionId(fresh.id);
     setMessage("");
-    setIsSessionLocked(false); // New chat is never locked
   }
 
   function handleClearHistory() {
@@ -265,7 +263,6 @@ export function useChatSession() {
     setSessions([fresh]);
     setActiveSessionId(fresh.id);
     setMessage("");
-    setIsSessionLocked(false);
   }
 
   function handleModeChange(nextMode) {

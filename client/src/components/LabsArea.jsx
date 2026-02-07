@@ -31,7 +31,7 @@ function cn(...inputs) {
 /**
  * Project item in the sidebar
  */
-function ProjectItem({ project, isActive, onSelect, onRename, onDelete }) {
+function ProjectItem({ project, isActive, onSelect, onRename, onDelete, modelName }) {
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState(project.name);
     const inputRef = useRef(null);
@@ -67,32 +67,41 @@ function ProjectItem({ project, isActive, onSelect, onRename, onDelete }) {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -10 }}
             className={cn(
-                "group flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer transition-colors",
+                "group flex items-start gap-2 px-3 py-2.5 rounded-lg cursor-pointer transition-colors",
                 isActive
                     ? "bg-foreground/10 text-white"
                     : "hover:bg-foreground/5 text-muted-foreground hover:text-white"
             )}
             onClick={() => !isEditing && onSelect(project.id)}
         >
-            <FileText size={16} className="shrink-0" />
+            <FileText size={16} className="shrink-0 mt-0.5" />
 
-            {isEditing ? (
-                <input
-                    ref={inputRef}
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onBlur={handleSave}
-                    onKeyDown={handleKeyDown}
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex-1 bg-transparent border-b border-foreground/30 outline-none text-sm py-0.5 text-white"
-                />
-            ) : (
-                <span className="flex-1 truncate text-sm">{project.name}</span>
-            )}
+            <div className="flex-1 min-w-0">
+                {isEditing ? (
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onBlur={handleSave}
+                        onKeyDown={handleKeyDown}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full bg-transparent border-b border-foreground/30 outline-none text-sm py-0.5 text-white"
+                    />
+                ) : (
+                    <>
+                        <span className="block truncate text-sm">{project.name}</span>
+                        {modelName && (
+                            <span className="block text-[10px] text-muted-foreground/60 truncate mt-0.5">
+                                {modelName}
+                            </span>
+                        )}
+                    </>
+                )}
+            </div>
 
             <div className={cn(
-                "flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity",
+                "flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0",
                 isEditing && "opacity-100"
             )}>
                 {!isEditing && (
@@ -130,13 +139,17 @@ function ProjectItem({ project, isActive, onSelect, onRename, onDelete }) {
 export default function LabsArea({
     toggleSidebar,
     sidebarOpen,
-    selectedModelId
+    selectedModelId,
+    onModelChange,
+    models = [],
+    onProjectLockChange
 }) {
     const {
         projects,
         activeProject,
         activeProjectId,
         setActiveProjectId,
+        isProjectLocked,
         isProcessing,
         handleNewProject,
         handleImportDocument,
@@ -144,8 +157,9 @@ export default function LabsArea({
         handleRenameProject,
         handleUpdateDocument,
         handleAIEdit,
-        forceSync
-    } = useLabsProjects(selectedModelId);
+        forceSync,
+        getModelName
+    } = useLabsProjects(selectedModelId, onModelChange, models);
 
     const [instruction, setInstruction] = useState("");
     const [error, setError] = useState("");
@@ -156,6 +170,13 @@ export default function LabsArea({
     const instructionRef = useRef(null);
     const importInputRef = useRef(null);
     const exportMenuRef = useRef(null);
+
+    // Notify parent when project lock state changes
+    useEffect(() => {
+        if (onProjectLockChange) {
+            onProjectLockChange(isProjectLocked);
+        }
+    }, [isProjectLocked, onProjectLockChange]);
 
     // Handle document changes with save status
     const handleDocumentChange = useCallback((newContent) => {
@@ -410,6 +431,7 @@ export default function LabsArea({
                                             }}
                                             onRename={handleRenameProject}
                                             onDelete={handleDeleteProject}
+                                            modelName={project.modelId ? getModelName(project.modelId) : null}
                                         />
                                     ))}
                                 </AnimatePresence>

@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { stripMetadata } from "../utils/contentUtils.js";
 
-// Per-model storage - each model has its own projects (aligned with Flowise chatflow history)
-const STORAGE_KEY_PREFIX = "labs_projects_";
+// Global storage - all projects stored together with their modelId
+const GLOBAL_STORAGE_KEY = "labs_projects_global";
 
 /**
- * Load projects from localStorage for a specific model
+ * Load all projects from localStorage (global)
  */
-function loadProjects(modelId) {
-  if (!modelId) return [];
-  const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${modelId}`);
+function loadAllProjects() {
+  const raw = localStorage.getItem(GLOBAL_STORAGE_KEY);
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
@@ -21,12 +20,11 @@ function loadProjects(modelId) {
 }
 
 /**
- * Save projects to localStorage for a specific model
+ * Save all projects to localStorage (global)
  */
-function saveProjects(modelId, projects) {
-  if (!modelId) return;
+function saveAllProjects(projects) {
   try {
-    localStorage.setItem(`${STORAGE_KEY_PREFIX}${modelId}`, JSON.stringify(projects));
+    localStorage.setItem(GLOBAL_STORAGE_KEY, JSON.stringify(projects));
   } catch (error) {
     console.error("[Labs] Failed to save projects:", error);
   }
@@ -34,11 +32,13 @@ function saveProjects(modelId, projects) {
 
 /**
  * Create a new project with empty document
+ * @param {string} modelId - The model this project is created with
  */
-function createProject(name = "Untitled Project", document = "") {
+function createProject(name = "Untitled Project", document = "", modelId = "") {
   return {
     id: crypto.randomUUID(),
     sessionId: crypto.randomUUID(), // Unique Flowise session per project
+    modelId, // Lock project to this model
     name,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -48,71 +48,95 @@ function createProject(name = "Untitled Project", document = "") {
 
 /**
  * Hook for managing Labs projects with localStorage persistence.
- * Projects are stored per-model, just like chat history - this keeps
- * project context aligned with Flowise chatflow conversation history.
- * @param {string} modelId - The currently selected model ID
+ * Projects are now stored globally with modelId per project.
+ * When a project with content is selected, the model auto-switches and locks.
+ * 
+ * @param {string} currentModelId - The currently selected model ID
+ * @param {function} onModelChange - Callback to switch model when project is selected
+ * @param {Array} models - Available models list (for displaying model names)
  */
-export function useLabsProjects(modelId) {
+export function useLabsProjects(currentModelId, onModelChange = null, models = []) {
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false); // Track if localStorage was loaded
-
-  // Load projects when modelId changes
-  useEffect(() => {
-    if (!modelId) {
-      setProjects([]);
-      setActiveProjectId("");
-      setIsLoaded(false);
-      return;
-    }
-    const loaded = loadProjects(modelId);
-    setProjects(loaded);
-    if (loaded.length > 0) {
-      setActiveProjectId(loaded[0].id);
-    } else {
-      setActiveProjectId("");
-    }
-    setIsLoaded(true); // Mark as loaded AFTER setting projects
-  }, [modelId]);
-
-  // Persist projects to localStorage on change (only after initial load)
-  useEffect(() => {
-    if (!modelId || !isLoaded) return;
-    saveProjects(modelId, projects);
-  }, [modelId, projects, isLoaded]);
-
-  // Auto-select first project or create one if none exist (only after load)
-  useEffect(() => {
-    if (!modelId || !isLoaded) return; // Wait for load to complete
-    if (projects.length === 0) {
-      const fresh = createProject();
-      setProjects([fresh]);
-      setActiveProjectId(fresh.id);
-    } else if (!activeProjectId || !projects.find(p => p.id === activeProjectId)) {
-      setActiveProjectId(projects[0].id);
-    }
-  }, [projects, activeProjectId, modelId, isLoaded]);
+  const initialLoadDone = useRef(false);
 
   // Get active project
   const activeProject = useMemo(() => {
     return projects.find(p => p.id === activeProjectId) || null;
   }, [projects, activeProjectId]);
 
+  // Project is locked when it has content - disables model switching
+  const isProjectLocked = useMemo(() => {
+    return activeProject?.document?.trim().length > 0;
+  }, [activeProject?.document]);
+
+  // Load ALL projects once on mount (global)
+  useEffect(() => {
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+
+    const loaded = loadAllProjects();
+    setProjects(loaded);
+    if (loaded.length > 0) {
+      setActiveProjectId(loaded[0].id);
+      // If the stored project has a modelId and content, switch to it
+      if (loaded[0].modelId && loaded[0].document?.trim() && onModelChange) {
+        onModelChange(loaded[0].modelId);
+      }
+    }
+  }, [onModelChange]);
+
+  // When no projects exist and we have a model, create a fresh project
+  useEffect(() => {
+    if (projects.length === 0 && currentModelId && initialLoadDone.current) {
+      const fresh = createProject("Untitled Project", "", currentModelId);
+      setProjects([fresh]);
+      setActiveProjectId(fresh.id);
+    }
+  }, [projects.length, currentModelId]);
+
+  // Save projects globally whenever they change
+  useEffect(() => {
+    if (projects.length > 0) {
+      saveAllProjects(projects);
+    }
+  }, [projects]);
+
   // Sorted projects list (newest first)
   const projectList = useMemo(() => {
     return [...projects].sort((a, b) => b.updatedAt - a.updatedAt);
   }, [projects]);
 
+  // Get model name by ID
+  const getModelName = useCallback((modelId) => {
+    const model = models.find(m => m.id === modelId);
+    return model?.name || `Model ${modelId}`;
+  }, [models]);
+
+  /**
+   * Select a project - auto-switches model if project has content
+   */
+  const handleSelectProject = useCallback((projectId) => {
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      setActiveProjectId(projectId);
+      // If project has content and a modelId, switch to that model
+      if (project.modelId && project.document?.trim() && onModelChange) {
+        onModelChange(project.modelId);
+      }
+    }
+  }, [projects, onModelChange]);
+
   /**
    * Create a new project and make it active
    */
   const handleNewProject = useCallback((name = "Untitled Project", document = "") => {
-    const fresh = createProject(name, document);
+    const fresh = createProject(name, document, currentModelId);
     setProjects(prev => [fresh, ...prev]);
     setActiveProjectId(fresh.id);
     return fresh;
-  }, []);
+  }, [currentModelId]);
 
   /**
    * Import a document file and create a project from it
@@ -174,10 +198,16 @@ export function useLabsProjects(modelId) {
     if (!activeProjectId) return;
     setProjects(prev => prev.map(p =>
       p.id === activeProjectId
-        ? { ...p, document: newDocument, updatedAt: Date.now() }
+        ? {
+          ...p,
+          document: newDocument,
+          updatedAt: Date.now(),
+          // Lock to current model when content is added
+          modelId: p.modelId || currentModelId
+        }
         : p
     ));
-  }, [activeProjectId]);
+  }, [activeProjectId, currentModelId]);
 
   /**
    * Send instruction to AI to generate or edit document
@@ -259,16 +289,15 @@ export function useLabsProjects(modelId) {
    * Force sync projects to localStorage (manual save)
    */
   const forceSync = useCallback(() => {
-    if (modelId) {
-      saveProjects(modelId, projects);
-    }
-  }, [modelId, projects]);
+    saveAllProjects(projects);
+  }, [projects]);
 
   return {
     projects: projectList,
     activeProject,
     activeProjectId,
-    setActiveProjectId,
+    setActiveProjectId: handleSelectProject, // Use our handler that does model switching
+    isProjectLocked,
     isProcessing,
     handleNewProject,
     handleImportDocument,
@@ -276,6 +305,7 @@ export function useLabsProjects(modelId) {
     handleRenameProject,
     handleUpdateDocument,
     handleAIEdit,
-    forceSync
+    forceSync,
+    getModelName
   };
 }
