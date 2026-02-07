@@ -35,6 +35,7 @@ export default function ChatSidebar({
   historyList,
   activeSessionId,
   onSelectSession,
+  isSessionLocked = false,
   theme,
   onToggleTheme,
   activeView = "chat",
@@ -157,7 +158,7 @@ export default function ChatSidebar({
             {/* Models Selection */}
             <div className="mb-6 space-y-2">
               <div className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                <span>Model</span>
+                <span>{isSessionLocked ? "Model (Locked)" : "Model"}</span>
                 <button
                   type="button"
                   onClick={onReloadModels}
@@ -168,10 +169,14 @@ export default function ChatSidebar({
               </div>
               <div className="relative">
                 <select
-                  className="w-full appearance-none bg-foreground/5 text-foreground text-sm rounded-lg pl-3 pr-8 py-2.5 border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-all hover:bg-foreground/8 disabled:opacity-60"
+                  className={cn(
+                    "w-full appearance-none bg-foreground/5 text-foreground text-sm rounded-lg pl-3 pr-8 py-2.5 border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-all hover:bg-foreground/8 disabled:opacity-60",
+                    isSessionLocked && "cursor-not-allowed opacity-70"
+                  )}
                   value={selectedModelId}
                   onChange={(e) => onSelectModel(e.target.value)}
-                  disabled={isModelsLoading || !models?.length}
+                  disabled={isModelsLoading || !models?.length || isSessionLocked}
+                  title={isSessionLocked ? "Model is locked to this chat session. Start a new chat to change models." : ""}
                 >
                   {isModelsLoading && (
                     <option value="" className="bg-background">
@@ -243,37 +248,34 @@ export default function ChatSidebar({
                   Recent
                 </div>
                 <div className="space-y-1">
-                  {(() => {
-                    console.log('[ChatSidebar] historyList:', historyList, 'length:', historyList?.length);
-                    return historyList.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/70 gap-2">
-                        <MessageSquare size={24} className="opacity-20" />
-                        <span className="text-xs">No history yet</span>
-                      </div>
-                    ) : (
-                      historyList.map((session) => (
-                        <button
-                          key={session.id}
-                          onClick={() => onSelectSession(session.id)}
-                          className={cn(
-                            "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors group flex items-center gap-3 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                            activeSessionId === session.id
-                              ? "bg-[#202338] text-foreground"
-                              : "text-muted-foreground hover:bg-[#1A1D29] hover:text-foreground"
-                          )}
-                        >
-                          {activeSessionId === session.id && (
-                            <span className="absolute left-0 top-2 bottom-2 w-[2px] bg-[#22D3EE] rounded-full" />
-                          )}
-                          <MessageSquare size={16} className={cn(
-                            "shrink-0 transition-colors",
-                            activeSessionId === session.id ? "text-foreground" : "text-muted-foreground/70 group-hover:text-muted-foreground"
-                          )} />
-                          <span className="truncate flex-1 z-10 relative">{session.title || "New Thread"}</span>
-                        </button>
-                      ))
-                    );
-                  })()}
+                  {historyList.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/70 gap-2">
+                      <MessageSquare size={24} className="opacity-20" />
+                      <span className="text-xs">No history yet</span>
+                    </div>
+                  ) : (
+                    historyList.map((session) => (
+                      <button
+                        key={session.id}
+                        onClick={() => onSelectSession(session.id)}
+                        className={cn(
+                          "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors group flex items-center gap-3 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                          activeSessionId === session.id
+                            ? "bg-[#202338] text-foreground"
+                            : "text-muted-foreground hover:bg-[#1A1D29] hover:text-foreground"
+                        )}
+                      >
+                        {activeSessionId === session.id && (
+                          <span className="absolute left-0 top-2 bottom-2 w-[2px] bg-[#22D3EE] rounded-full" />
+                        )}
+                        <MessageSquare size={16} className={cn(
+                          "shrink-0 transition-colors",
+                          activeSessionId === session.id ? "text-foreground" : "text-muted-foreground/70 group-hover:text-muted-foreground"
+                        )} />
+                        <span className="truncate flex-1 z-10 relative">{session.title || "New Thread"}</span>
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
             )}

@@ -36,7 +36,8 @@ export default function App() {
     mode,
     activeSession,
     activeSessionId,
-    setActiveSessionId,
+    handleSelectSession,
+    isSessionLocked,
     message,
     setMessage,
     isStreaming,
@@ -108,7 +109,8 @@ export default function App() {
         onClearHistory={handleClearHistory}
         historyList={historyList}
         activeSessionId={activeSessionId}
-        onSelectSession={setActiveSessionId}
+        onSelectSession={handleSelectSession}
+        isSessionLocked={isSessionLocked}
         theme={theme}
         onToggleTheme={() =>
           setTheme((prev) => (prev === "dark" ? "light" : "dark"))

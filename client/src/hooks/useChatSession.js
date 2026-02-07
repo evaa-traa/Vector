@@ -3,6 +3,7 @@ import { createParser } from "eventsource-parser";
 
 const MAX_MESSAGES = 20;
 const REQUEST_TIMEOUT_MS = 60000; // 60 second timeout
+const GLOBAL_HISTORY_KEY = "flowise_history_global";
 
 const MODES = [
   { id: "chat", label: "Chat Mode" }
@@ -15,9 +16,9 @@ const ACTIVITY_LABELS = {
   writing: "Writing answer"
 };
 
-function loadSessions(modelId) {
-  if (!modelId) return [];
-  const raw = localStorage.getItem(`flowise_history_${modelId}`);
+// Global history - all sessions stored together with their modelId
+function loadAllSessions() {
+  const raw = localStorage.getItem(GLOBAL_HISTORY_KEY);
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
@@ -39,35 +40,30 @@ function normalizeSessionsForStorage(sessions) {
   }));
 }
 
-function saveSessions(modelId, sessions) {
-  if (!modelId) return;
+function saveAllSessions(sessions) {
   const normalized = normalizeSessionsForStorage(sessions);
   try {
-    localStorage.setItem(
-      `flowise_history_${modelId}`,
-      JSON.stringify(normalized)
-    );
+    localStorage.setItem(GLOBAL_HISTORY_KEY, JSON.stringify(normalized));
   } catch (error) {
     const reduced = normalized.map((session) => ({
       ...session,
       messages: session.messages.slice(-10)
     }));
     try {
-      localStorage.setItem(
-        `flowise_history_${modelId}`,
-        JSON.stringify(reduced)
-      );
+      localStorage.setItem(GLOBAL_HISTORY_KEY, JSON.stringify(reduced));
     } catch (innerError) {
-      localStorage.removeItem(`flowise_history_${modelId}`);
+      localStorage.removeItem(GLOBAL_HISTORY_KEY);
     }
   }
 }
 
-function createSession(mode) {
+// Session now includes modelId to lock it to that model
+function createSession(mode, modelId) {
   return {
     id: crypto.randomUUID(),
     title: "New chat",
     mode,
+    modelId, // Lock session to this model
     createdAt: Date.now(),
     messages: []
   };
@@ -112,8 +108,10 @@ export function useChatSession() {
   const [activeSessionId, setActiveSessionId] = useState("");
   const [message, setMessage] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isSessionLocked, setIsSessionLocked] = useState(false); // Lock when viewing old session
   const abortRef = useRef(null);
   const timeoutRef = useRef(null);
+  const initialLoadDone = useRef(false);
 
   const activeSession = sessions.find((item) => item.id === activeSessionId);
 
@@ -183,18 +181,32 @@ export function useChatSession() {
     };
   }, [modelsReloadToken]);
 
+  // Load ALL sessions once on mount (global history)
   useEffect(() => {
-    if (!selectedModelId) return;
-    const stored = loadSessions(selectedModelId);
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+
+    const stored = loadAllSessions();
     setSessions(stored);
     if (stored.length > 0) {
       setActiveSessionId(stored[0].id);
-    } else {
-      const fresh = createSession(mode);
+      // If the stored session has a modelId, switch to it
+      if (stored[0].modelId) {
+        setSelectedModelId(stored[0].modelId);
+        setIsSessionLocked(true);
+      }
+    }
+  }, []);
+
+  // When no sessions exist and we have a model, create a fresh session
+  useEffect(() => {
+    if (sessions.length === 0 && selectedModelId && initialLoadDone.current) {
+      const fresh = createSession(mode, selectedModelId);
       setSessions([fresh]);
       setActiveSessionId(fresh.id);
+      setIsSessionLocked(false);
     }
-  }, [selectedModelId]);
+  }, [sessions.length, selectedModelId, mode]);
 
   useEffect(() => {
     if (activeSession?.mode) {
@@ -202,10 +214,12 @@ export function useChatSession() {
     }
   }, [activeSession?.mode]);
 
+  // Save sessions globally whenever they change
   useEffect(() => {
-    if (!selectedModelId) return;
-    saveSessions(selectedModelId, sessions);
-  }, [selectedModelId, sessions]);
+    if (sessions.length > 0) {
+      saveAllSessions(sessions);
+    }
+  }, [sessions]);
 
   const historyList = useMemo(() => {
     return [...sessions].sort((a, b) => b.createdAt - a.createdAt);
@@ -214,6 +228,21 @@ export function useChatSession() {
   const selectedModel = useMemo(() => {
     return models.find((m) => m.id === selectedModelId) || null;
   }, [models, selectedModelId]);
+
+  // Handle session selection - auto-switch model to match session
+  function handleSelectSession(sessionId) {
+    const session = sessions.find(s => s.id === sessionId);
+    if (session) {
+      setActiveSessionId(sessionId);
+      // If the session has messages (not empty), lock to its model
+      if (session.modelId && session.messages && session.messages.length > 0) {
+        setSelectedModelId(session.modelId);
+        setIsSessionLocked(true);
+      } else {
+        setIsSessionLocked(false);
+      }
+    }
+  }
 
   function updateSession(sessionId, updater) {
     setSessions((prev) =>
@@ -224,17 +253,19 @@ export function useChatSession() {
   }
 
   function handleNewChat() {
-    const fresh = createSession(mode);
+    const fresh = createSession(mode, selectedModelId);
     setSessions((prev) => [fresh, ...prev]);
     setActiveSessionId(fresh.id);
     setMessage("");
+    setIsSessionLocked(false); // New chat is never locked
   }
 
   function handleClearHistory() {
-    const fresh = createSession(mode);
+    const fresh = createSession(mode, selectedModelId);
     setSessions([fresh]);
     setActiveSessionId(fresh.id);
     setMessage("");
+    setIsSessionLocked(false);
   }
 
   function handleModeChange(nextMode) {
@@ -510,6 +541,8 @@ export function useChatSession() {
     activeSession,
     activeSessionId,
     setActiveSessionId,
+    handleSelectSession, // Use this instead of setActiveSessionId for history clicks
+    isSessionLocked, // True when viewing a session that's locked to a specific model
     message,
     setMessage,
     isStreaming,

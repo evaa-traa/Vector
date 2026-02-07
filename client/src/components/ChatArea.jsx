@@ -610,7 +610,12 @@ export default function ChatArea({
 
       {/* Footer Input Area */}
       {!isEmpty && (
-        <div className="p-3 md:p-4 bg-card/80 backdrop-blur-sm z-20">
+        <div
+          className="p-3 md:p-4 bg-card/80 backdrop-blur-sm z-20"
+          style={{
+            paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))'
+          }}
+        >
           <div className="mx-auto max-w-xl">
             <SearchInput
               value={message}
