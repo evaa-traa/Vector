@@ -114,10 +114,12 @@ export function useChatSession() {
 
   const activeSession = sessions.find((item) => item.id === activeSessionId);
 
-  // Session is locked as soon as it has any messages - this disables model switching
+  // Session is locked when it has messages - disables model switching
+  // IMPORTANT: This is computed, not stored, so it updates instantly
   const isSessionLocked = useMemo(() => {
-    return activeSession?.messages?.length > 0;
-  }, [activeSession?.messages?.length]);
+    if (!activeSession) return false;
+    return (activeSession.messages?.length ?? 0) > 0;
+  }, [activeSession]);
 
   useEffect(() => {
     let isMounted = true;

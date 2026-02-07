@@ -67,9 +67,11 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
   }, [projects, activeProjectId]);
 
   // Project is locked when it has content - disables model switching
+  // IMPORTANT: This is computed, not stored, so it updates instantly
   const isProjectLocked = useMemo(() => {
-    return activeProject?.document?.trim().length > 0;
-  }, [activeProject?.document]);
+    if (!activeProject) return false;
+    return (activeProject.document?.trim().length ?? 0) > 0;
+  }, [activeProject]);
 
   // Load ALL projects once on mount (global)
   useEffect(() => {
