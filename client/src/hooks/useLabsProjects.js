@@ -1,108 +1,187 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { stripMetadata } from "../utils/contentUtils.js";
 
-// Global storage - all projects stored together with their modelId
+// Global storage key for all Labs projects
 const GLOBAL_STORAGE_KEY = "labs_projects_global";
 
 /**
- * Load all projects from localStorage (global)
+ * Load all projects from localStorage with validation
  */
 function loadAllProjects() {
-  const raw = localStorage.getItem(GLOBAL_STORAGE_KEY);
-  if (!raw) return [];
   try {
+    const raw = localStorage.getItem(GLOBAL_STORAGE_KEY);
+    if (!raw) {
+      console.log("[Labs] No stored projects found");
+      return [];
+    }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) {
+      console.warn("[Labs] Invalid stored data format, resetting");
+      return [];
+    }
+    // Validate each project structure
+    const validated = parsed
+      .filter(p => p && typeof p === "object" && p.id)
+      .map(project => ({
+        id: project.id,
+        sessionId: project.sessionId || crypto.randomUUID(),
+        modelId: project.modelId || "",
+        name: project.name || "Untitled Project",
+        createdAt: project.createdAt || Date.now(),
+        updatedAt: project.updatedAt || Date.now(),
+        document: project.document || ""
+      }));
+    console.log(`[Labs] Loaded ${validated.length} projects from storage`);
+    return validated;
   } catch (error) {
-    console.warn("[Labs] Failed to parse projects:", error);
+    console.error("[Labs] Failed to load projects:", error);
     return [];
   }
 }
 
 /**
- * Save all projects to localStorage (global)
+ * Save all projects to localStorage
  */
 function saveAllProjects(projects) {
+  if (!projects || projects.length === 0) {
+    console.log("[Labs] Skipping save - no projects");
+    return false;
+  }
   try {
-    localStorage.setItem(GLOBAL_STORAGE_KEY, JSON.stringify(projects));
+    const serialized = JSON.stringify(projects);
+    localStorage.setItem(GLOBAL_STORAGE_KEY, serialized);
+    console.log(`[Labs] Saved ${projects.length} projects (${serialized.length} bytes)`);
+    return true;
   } catch (error) {
     console.error("[Labs] Failed to save projects:", error);
+    // Handle QuotaExceededError - try saving with trimmed documents
+    if (error.name === "QuotaExceededError") {
+      console.warn("[Labs] Storage quota exceeded, trying reduced save...");
+      try {
+        const reduced = projects.map(p => ({
+          ...p,
+          document: (p.document || "").slice(0, 50000) // Limit to 50KB per document
+        }));
+        localStorage.setItem(GLOBAL_STORAGE_KEY, JSON.stringify(reduced));
+        console.log("[Labs] Reduced save successful");
+        return true;
+      } catch (innerError) {
+        console.error("[Labs] Reduced save also failed, clearing storage");
+        localStorage.removeItem(GLOBAL_STORAGE_KEY);
+        return false;
+      }
+    }
+    return false;
   }
 }
 
 /**
- * Create a new project with empty document
- * @param {string} modelId - The model this project is created with
+ * Create a new project with unique sessionId for Flowise
  */
 function createProject(name = "Untitled Project", document = "", modelId = "") {
-  return {
+  const project = {
     id: crypto.randomUUID(),
     sessionId: crypto.randomUUID(), // Unique Flowise session per project
-    modelId, // Lock project to this model
+    modelId,
     name,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     document
   };
+  console.log(`[Labs] Created project: ${project.id} with session: ${project.sessionId}`);
+  return project;
 }
 
 /**
  * Hook for managing Labs projects with localStorage persistence.
- * Projects are now stored globally with modelId per project.
- * When a project with content is selected, the model auto-switches and locks.
- * 
- * @param {string} currentModelId - The currently selected model ID
- * @param {function} onModelChange - Callback to switch model when project is selected
- * @param {Array} models - Available models list (for displaying model names)
+ * Each project has its own sessionId for Flowise conversation memory.
  */
 export function useLabsProjects(currentModelId, onModelChange = null, models = []) {
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const initialLoadDone = useRef(false);
+  const saveTimeoutRef = useRef(null);
 
   // Get active project
   const activeProject = useMemo(() => {
     return projects.find(p => p.id === activeProjectId) || null;
   }, [projects, activeProjectId]);
 
-  // Project is locked when it has content - disables model switching
-  // IMPORTANT: This is computed, not stored, so it updates instantly
+  // Project is locked when it has content
   const isProjectLocked = useMemo(() => {
     if (!activeProject) return false;
     return (activeProject.document?.trim().length ?? 0) > 0;
   }, [activeProject]);
 
-  // Load ALL projects once on mount (global)
+  // Load projects on mount - ONCE
   useEffect(() => {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
 
+    console.log("[Labs] Initial load starting...");
     const loaded = loadAllProjects();
-    setProjects(loaded);
+
     if (loaded.length > 0) {
+      setProjects(loaded);
       setActiveProjectId(loaded[0].id);
-      // If the stored project has a modelId and content, switch to it
+      console.log(`[Labs] Set active project: ${loaded[0].id}`);
+
+      // Switch to project's model if it has content
       if (loaded[0].modelId && loaded[0].document?.trim() && onModelChange) {
         onModelChange(loaded[0].modelId);
       }
     }
   }, [onModelChange]);
 
-  // When no projects exist and we have a model, create a fresh project
+  // Create fresh project when we have a model but no projects
   useEffect(() => {
     if (projects.length === 0 && currentModelId && initialLoadDone.current) {
+      console.log("[Labs] No projects, creating fresh one...");
       const fresh = createProject("Untitled Project", "", currentModelId);
       setProjects([fresh]);
       setActiveProjectId(fresh.id);
     }
   }, [projects.length, currentModelId]);
 
-  // Save projects globally whenever they change
+  // Save projects whenever they change (debounced)
   useEffect(() => {
-    if (projects.length > 0) {
-      saveAllProjects(projects);
+    if (!initialLoadDone.current) return;
+    if (projects.length === 0) return;
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
+
+    // Debounce save by 200ms
+    saveTimeoutRef.current = setTimeout(() => {
+      saveAllProjects(projects);
+    }, 200);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [projects]);
+
+  // Force save on page unload to prevent data loss from debounce delay
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (projects.length > 0) {
+        // Cancel pending debounced save and save immediately
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+        saveAllProjects(projects);
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   }, [projects]);
 
   // Sorted projects list (newest first)
@@ -117,13 +196,13 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
   }, [models]);
 
   /**
-   * Select a project - auto-switches model if project has content
+   * Select a project
    */
   const handleSelectProject = useCallback((projectId) => {
     const project = projects.find(p => p.id === projectId);
     if (project) {
       setActiveProjectId(projectId);
-      // If project has content and a modelId, switch to that model
+      console.log(`[Labs] Selected project: ${projectId}, session: ${project.sessionId}`);
       if (project.modelId && project.document?.trim() && onModelChange) {
         onModelChange(project.modelId);
       }
@@ -131,7 +210,7 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
   }, [projects, onModelChange]);
 
   /**
-   * Create a new project and make it active
+   * Create a new project
    */
   const handleNewProject = useCallback((name = "Untitled Project", document = "") => {
     const fresh = createProject(name, document, currentModelId);
@@ -141,7 +220,7 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
   }, [currentModelId]);
 
   /**
-   * Import a document file and create a project from it
+   * Import a document file
    */
   const handleImportDocument = useCallback(async (file) => {
     if (!file) return null;
@@ -151,13 +230,11 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
 
     try {
       if (file.name.endsWith(".docx")) {
-        // Use mammoth for .docx files
         const mammoth = await import("mammoth");
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
         document = result.value || "";
       } else {
-        // Plain text for .txt and .md files
         document = await file.text();
       }
 
@@ -169,12 +246,11 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
   }, [handleNewProject]);
 
   /**
-   * Delete a project by ID
+   * Delete a project
    */
   const handleDeleteProject = useCallback((projectId) => {
     setProjects(prev => {
       const filtered = prev.filter(p => p.id !== projectId);
-      // If deleting active project, switch to first remaining
       if (projectId === activeProjectId && filtered.length > 0) {
         setActiveProjectId(filtered[0].id);
       }
@@ -194,7 +270,7 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
   }, []);
 
   /**
-   * Update the document content for the active project
+   * Update document content
    */
   const handleUpdateDocument = useCallback((newDocument) => {
     if (!activeProjectId) return;
@@ -204,7 +280,6 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
           ...p,
           document: newDocument,
           updatedAt: Date.now(),
-          // Lock to current model when content is added
           modelId: p.modelId || currentModelId
         }
         : p
@@ -212,13 +287,13 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
   }, [activeProjectId, currentModelId]);
 
   /**
-   * Send instruction to AI to generate or edit document
-   * Returns the updated document content
+   * AI edit - uses project's sessionId for Flowise memory
    */
   const handleAIEdit = useCallback(async (instruction, modelIdForAI) => {
     if (!activeProject) return null;
 
     setIsProcessing(true);
+    console.log(`[Labs] AI Edit - Project: ${activeProject.id}, Session: ${activeProject.sessionId}`);
 
     try {
       const response = await fetch("/labs-edit", {
@@ -228,7 +303,7 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
           document: activeProject.document,
           instruction,
           modelId: modelIdForAI,
-          sessionId: activeProject.sessionId
+          sessionId: activeProject.sessionId // Uses unique session per project
         })
       });
 
@@ -237,7 +312,6 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
         throw new Error(errorText || `Request failed (${response.status})`);
       }
 
-      // Handle streaming response
       if (!response.body) {
         throw new Error("No response body");
       }
@@ -252,8 +326,6 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-
-        // Parse SSE events
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
 
@@ -265,14 +337,12 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
                 fullContent += data.text;
               }
             } catch {
-              // Non-JSON data, treat as raw text
               fullContent += line.slice(6);
             }
           }
         }
       }
 
-      // Update project with new document (filtered of metadata)
       if (fullContent) {
         const cleanedContent = stripMetadata(fullContent);
         handleUpdateDocument(cleanedContent);
@@ -288,7 +358,7 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
   }, [activeProject, handleUpdateDocument]);
 
   /**
-   * Force sync projects to localStorage (manual save)
+   * Force save to localStorage
    */
   const forceSync = useCallback(() => {
     saveAllProjects(projects);
@@ -298,7 +368,7 @@ export function useLabsProjects(currentModelId, onModelChange = null, models = [
     projects: projectList,
     activeProject,
     activeProjectId,
-    setActiveProjectId: handleSelectProject, // Use our handler that does model switching
+    setActiveProjectId: handleSelectProject,
     isProjectLocked,
     isProcessing,
     handleNewProject,
