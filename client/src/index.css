@@ -36,33 +36,43 @@
   }
 
   .light {
-    /* Modern Professional Light Mode - Enhanced Contrast */
-    --background: 0 0% 98%;
-    --foreground: 222 47% 11%;
+    /* ChatGPT-Style Light Mode with Cyan Primary */
+    --background: 0 0% 100%;
+    --foreground: 220 14% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 221.2 83.2% 53.3%;
+    --card-foreground: 220 14% 10%;
+    --popover: 210 20% 97%;
+    --popover-foreground: 220 14% 10%;
+    /* Cyan primary - same hue as dark mode */
+    --primary: 187.9412 85.7143% 43%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 220 14% 96%;
-    --accent-foreground: 222 47% 11%;
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 220 14% 10%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 220 9% 40%;
+    --accent: 210 20% 93%;
+    --accent-foreground: 220 14% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 85%;
-    --input: 220 14% 96%;
-    --ring: 221.2 83.2% 53.3%;
+    --border: 220 13% 88%;
+    --input: 210 20% 97%;
+    --ring: 187.9412 85.7143% 43%;
     --input-surface: #FFFFFF;
     --input-surface-focus: #F8FAFC;
-    --input-border: #CBD5E1;
-    --input-border-focus: #94A3B8;
-    --placeholder-color: #64748B;
-    --scrollbar-thumb: rgba(0, 0, 0, 0.15);
-    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
+    --input-border: #E5E7EB;
+    --input-border-focus: #22D3EE;
+    --placeholder-color: #9CA3AF;
+    --scrollbar-thumb: rgba(0, 0, 0, 0.12);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.2);
+
+    /* Light mode specific colors for components */
+    --sidebar-bg: 210 20% 97%;
+    --sidebar-border: 220 13% 90%;
+    --chat-user-bubble: 187.9412 85.7143% 43%;
+    --chat-user-text: 0 0% 100%;
+    --message-text: 220 14% 15%;
+    --heading-text: 220 14% 10%;
+    --link-color: 187.9412 85.7143% 35%;
   }
 }
 
@@ -149,13 +159,14 @@
 
 .light .floating-input-bar {
   background: #FFFFFF;
-  border: 1px solid #E2E8F0;
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .light .floating-input-bar:focus-within {
   background: #FFFFFF;
-  border-color: #94A3B8;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  border-color: #22D3EE;
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.15), 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 
@@ -429,4 +440,293 @@
     word-wrap: break-word;
     overflow-wrap: break-word;
   }
+}
+
+/* ========================================
+   LIGHT MODE COMPREHENSIVE OVERRIDES
+   ChatGPT-Style Light Theme with Cyan Accents
+   ======================================== */
+
+/* Sidebar styling for light mode */
+.light aside,
+.light [class*="bg-popover"] {
+  background-color: hsl(210, 20%, 97%) !important;
+  border-color: hsl(220, 13%, 90%) !important;
+}
+
+/* Light mode sidebar border */
+.light .border-\[rgba\(255\,255\,255\,0\.04\)\] {
+  border-color: hsl(220, 13%, 90%) !important;
+}
+
+/* Chat area and cards in light mode */
+.light .bg-card,
+.light [class*="bg-card"] {
+  background-color: #FFFFFF !important;
+}
+
+/* User message bubble - cyan themed */
+.light .bg-\[\#2F2F2F\] {
+  background-color: #0891B2 !important;
+  color: #FFFFFF !important;
+}
+
+/* History item selected state */
+.light .bg-\[\#202338\] {
+  background-color: rgba(8, 145, 178, 0.12) !important;
+}
+
+/* History item hover state */
+.light .hover\:bg-\[\#1A1D29\]:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Cyan accent indicator line */
+.light .bg-\[\#22D3EE\] {
+  background-color: #0891B2 !important;
+}
+
+/* Text colors - ensure proper contrast */
+.light .text-white {
+  color: hsl(220, 14%, 10%) !important;
+}
+
+.light .text-white\/90,
+.light .text-white\/95,
+.light .text-white\/80 {
+  color: hsl(220, 14%, 15%) !important;
+}
+
+/* Specific overrides for inputs where white text is needed on colored backgrounds */
+.light .bg-\[\#2F2F2F\] .text-white,
+.light .bg-\[\#0891B2\] .text-white,
+.light .bg-primary .text-white,
+.light [class*="bg-primary"] .text-white,
+.light .floating-input-bar .text-white {
+  color: #FFFFFF !important;
+}
+
+/* Keep text input dark on light background */
+.light .floating-input-bar textarea,
+.light .floating-input-bar input {
+  color: hsl(220, 14%, 10%) !important;
+}
+
+/* Muted foreground for labels and hints */
+.light .text-muted-foreground {
+  color: hsl(220, 9%, 40%) !important;
+}
+
+/* Links in markdown content */
+.light .markdown-content a {
+  color: #0891B2 !important;
+  text-decoration-color: rgba(8, 145, 178, 0.4) !important;
+}
+
+.light .markdown-content a:hover {
+  color: #0E7490 !important;
+  text-decoration-color: rgba(8, 145, 178, 0.6) !important;
+}
+
+/* Code blocks in light mode */
+.light .markdown-content pre {
+  background-color: hsl(210, 20%, 96%) !important;
+  border-color: hsl(220, 13%, 88%) !important;
+}
+
+.light .markdown-content pre code,
+.light .markdown-content code {
+  color: hsl(220, 14%, 15%) !important;
+}
+
+/* Inline code styling */
+.light .bg-foreground\/10 {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Table styling */
+.light .markdown-content table {
+  border-color: hsl(220, 13%, 88%) !important;
+}
+
+.light .markdown-content thead {
+  background-color: hsl(210, 20%, 96%) !important;
+}
+
+.light .markdown-content th,
+.light .markdown-content td {
+  color: hsl(220, 14%, 15%) !important;
+  border-color: hsl(220, 13%, 88%) !important;
+}
+
+/* Blockquotes */
+.light .markdown-content blockquote {
+  background-color: hsl(210, 20%, 97%) !important;
+  border-left-color: #0891B2 !important;
+  color: hsl(220, 14%, 20%) !important;
+}
+
+/* Headings */
+.light .markdown-content h1,
+.light .markdown-content h2,
+.light .markdown-content h3 {
+  color: hsl(220, 14%, 10%) !important;
+  border-color: hsl(220, 13%, 88%) !important;
+}
+
+/* Buttons in light mode */
+.light .bg-\[\#4A4A4A\] {
+  background-color: #0891B2 !important;
+  color: #FFFFFF !important;
+}
+
+.light .hover\:bg-\[\#5A5A5A\]:hover {
+  background-color: #0E7490 !important;
+}
+
+.light .bg-\[\#3A3A3A\] {
+  background-color: hsl(210, 20%, 92%) !important;
+  color: hsl(220, 9%, 50%) !important;
+}
+
+/* File attachment chips */
+.light .bg-\[\#3A3A3A\].rounded-full {
+  background-color: hsl(210, 20%, 90%) !important;
+  color: hsl(220, 14%, 20%) !important;
+}
+
+/* Source link chips */
+.light .bg-\[\#2A2A2A\] {
+  background-color: hsl(210, 20%, 96%) !important;
+  border-color: hsl(220, 13%, 85%) !important;
+}
+
+/* Dropdown menus */
+.light .bg-\[\#1E1E1E\] {
+  background-color: #FFFFFF !important;
+  border-color: hsl(220, 13%, 88%) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Processing/loading states */
+.light .border-muted-foreground\/20 {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light .border-t-muted-foreground\/60 {
+  border-top-color: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Pro tips / suggestion buttons */
+.light .border-border {
+  border-color: hsl(220, 13%, 88%) !important;
+}
+
+/* Hero section styling */
+.light .font-display {
+  color: hsl(220, 14%, 10%) !important;
+}
+
+/* Action buttons hover */
+.light .hover\:bg-white\/5:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+.light .hover\:text-white:hover {
+  color: hsl(220, 14%, 10%) !important;
+}
+
+/* Selection styling for light mode */
+.light ::selection {
+  background: rgba(8, 145, 178, 0.2);
+  color: hsl(220, 14%, 10%);
+}
+
+.light ::-moz-selection {
+  background: rgba(8, 145, 178, 0.2);
+  color: hsl(220, 14%, 10%);
+}
+
+/* Mobile header in light mode */
+.light .border-border\/30 {
+  border-color: hsl(220, 13%, 90%) !important;
+}
+
+/* Export menu items */
+.light .hover\:bg-foreground\/10:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Labs editor area */
+.light .bg-background {
+  background-color: #FFFFFF !important;
+}
+
+/* Status badges */
+.light .bg-green-400\/10 {
+  background-color: rgba(74, 222, 128, 0.15) !important;
+}
+
+.light .text-green-400\/70,
+.light .text-green-400 {
+  color: #16A34A !important;
+}
+
+.light .bg-yellow-400\/10 {
+  background-color: rgba(250, 204, 21, 0.15) !important;
+}
+
+.light .text-yellow-400\/70 {
+  color: #CA8A04 !important;
+}
+
+/* Cursor states and animations */
+.light .bg-white\/70 {
+  background-color: hsl(220, 14%, 20%) !important;
+}
+
+/* Labs project sidebar */
+.light .bg-foreground\/5 {
+  background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+.light .hover\:bg-foreground\/8:hover,
+.light .hover\:bg-foreground\/5:hover {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Thinking dots remain visible in light mode */
+.light .thinking-dot {
+  background-color: hsl(220, 9%, 40%) !important;
+}
+
+/* Streaming status badges */
+.light .bg-foreground\/5.border-border {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Ensure primary color elements use cyan */
+.light .text-primary {
+  color: #0891B2 !important;
+}
+
+.light .bg-primary {
+  background-color: #0891B2 !important;
+}
+
+.light .bg-primary\/10 {
+  background-color: rgba(8, 145, 178, 0.1) !important;
+}
+
+.light .bg-primary\/20 {
+  background-color: rgba(8, 145, 178, 0.2) !important;
+}
+
+.light .hover\:bg-primary\/90:hover {
+  background-color: #0E7490 !important;
+}
+
+/* Icon colors in sidebar */
+.light .text-\[\#22D3EE\] {
+  color: #0891B2 !important;
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import ErrorBoundary from "./ErrorBoundary.jsx";
+import AudioVisualizer from "./AudioVisualizer.jsx";
 
 function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -588,18 +590,19 @@ export default function ChatArea({
                 index === (activeSession?.messages?.length || 0) - 1;
 
               return (
-                <MessageRow
-                  key={msg.id || index}
-                  msg={msg}
-                  index={index}
-                  isLastAssistant={isLastAssistant}
-                  isStreaming={isStreaming}
-                  showSearching={showSearching}
-                  activityLabels={activityLabels}
-                  activeSession={activeSession}
-                  onMessageChange={onMessageChange}
-                  onSend={onSend}
-                />
+                <ErrorBoundary key={msg.id || index} minimal>
+                  <MessageRow
+                    msg={msg}
+                    index={index}
+                    isLastAssistant={isLastAssistant}
+                    isStreaming={isStreaming}
+                    showSearching={showSearching}
+                    activityLabels={activityLabels}
+                    activeSession={activeSession}
+                    onMessageChange={onMessageChange}
+                    onSend={onSend}
+                  />
+                </ErrorBoundary>
               );
             })}
 
@@ -637,10 +640,16 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
   const textareaScrollTimeoutRef = React.useRef(null);
   const [isRecording, setIsRecording] = React.useState(false);
   const [selectedFiles, setSelectedFiles] = React.useState([]);
-  const mediaRecorderRef = React.useRef(null);
-  const audioChunksRef = React.useRef([]);
+  const [audioStream, setAudioStream] = React.useState(null);
+  const [interimTranscript, setInterimTranscript] = React.useState("");
+  const recognitionRef = React.useRef(null);
   const maxTextareaHeight = isHero ? 100 : 120;
   const minTextareaHeight = 44;
+
+  // Check for Speech Recognition support
+  const SpeechRecognition = typeof window !== 'undefined'
+    ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+    : null;
 
   useLayoutEffect(() => {
     const el = textareaRef.current;
@@ -693,37 +702,94 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
 
   const handleMicClick = async () => {
     if (isRecording) {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
+      // Stop recording
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+        setAudioStream(null);
       }
       setIsRecording(false);
+      setInterimTranscript("");
     } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mediaRecorder = new MediaRecorder(stream);
-        mediaRecorderRef.current = mediaRecorder;
-        audioChunksRef.current = [];
+      // Check browser support
+      if (!SpeechRecognition) {
+        console.error('Speech Recognition not supported in this browser');
+        alert('Speech-to-text is not supported in this browser. Please use Chrome, Edge, or Safari.');
+        return;
+      }
 
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            audioChunksRef.current.push(event.data);
+      try {
+        // Get audio stream for visualizer
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setAudioStream(stream);
+
+        // Set up Speech Recognition
+        const recognition = new SpeechRecognition();
+        recognitionRef.current = recognition;
+
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        let finalTranscript = value;
+
+        recognition.onresult = (event) => {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript = (finalTranscript ? finalTranscript + ' ' : '') + transcript;
+              onChange(finalTranscript);
+            } else {
+              interim += transcript;
+            }
+          }
+          setInterimTranscript(interim);
+        };
+
+        recognition.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+          if (audioStream) {
+            audioStream.getTracks().forEach(track => track.stop());
+            setAudioStream(null);
+          }
+          setIsRecording(false);
+          setInterimTranscript("");
+        };
+
+        recognition.onend = () => {
+          // Restart if still in recording mode
+          if (recognitionRef.current && isRecording) {
+            try {
+              recognitionRef.current.start();
+            } catch (e) {
+              // Ignore
+            }
           }
         };
 
-        mediaRecorder.onstop = () => {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          const audioFile = new File([audioBlob], 'voice-recording.webm', { type: 'audio/webm' });
-          setSelectedFiles(prev => [...prev, audioFile]);
-          stream.getTracks().forEach(track => track.stop());
-        };
-
-        mediaRecorder.start();
+        recognition.start();
         setIsRecording(true);
       } catch (err) {
         console.error('Microphone access denied:', err);
       }
     }
   };
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) { }
+      }
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [audioStream]);
+
 
   return (
     <div className="flex flex-col w-full">
@@ -774,22 +840,44 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
           <Plus size={20} strokeWidth={1.5} />
         </button>
 
-        {/* Text input */}
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onScroll={handleTextareaScroll}
-          placeholder="Ask anything"
-          aria-label="Ask anything"
-          inputMode="text"
-          autoComplete="off"
-          autoCorrect="off"
-          className="flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-white resize-none custom-scrollbar py-2.5 px-1 text-[15px] leading-6"
-          rows={1}
-          style={{ minHeight: `${minTextareaHeight}px`, maxHeight: `${maxTextareaHeight}px` }}
-        />
+        {/* Audio Visualizer or Text input */}
+        {isRecording && audioStream ? (
+          <div className="flex-1 flex flex-col items-center justify-center px-2 min-h-[44px]">
+            <AudioVisualizer stream={audioStream} isActive={isRecording} />
+            {/* Show interim transcript as user speaks */}
+            {interimTranscript && (
+              <div className="text-xs text-muted-foreground/70 italic mt-1 truncate max-w-full">
+                {interimTranscript}...
+              </div>
+            )}
+            {!interimTranscript && value && (
+              <div className="text-xs text-green-400/70 mt-1 truncate max-w-full">
+                ✓ "{value.slice(-50)}{value.length > 50 ? '...' : ''}"
+              </div>
+            )}
+            {!interimTranscript && !value && (
+              <div className="text-xs text-muted-foreground/50 mt-1">
+                Listening... speak now
+              </div>
+            )}
+          </div>
+        ) : (
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onScroll={handleTextareaScroll}
+            placeholder="Ask anything"
+            aria-label="Ask anything"
+            inputMode="text"
+            autoComplete="off"
+            autoCorrect="off"
+            className="flex-1 bg-transparent border-none focus:ring-0 focus:outline-none text-white resize-none custom-scrollbar py-2.5 px-1 text-[15px] leading-6"
+            rows={1}
+            style={{ minHeight: `${minTextareaHeight}px`, maxHeight: `${maxTextareaHeight}px` }}
+          />
+        )}
 
         {/* Right side buttons */}
         <div className="flex items-center gap-0.5 shrink-0">
