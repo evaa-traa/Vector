@@ -506,10 +506,20 @@
   color: #FFFFFF !important;
 }
 
-/* Keep text input dark on light background */
+/* Keep text input dark on light background - with high specificity */
 .light .floating-input-bar textarea,
-.light .floating-input-bar input {
+.light .floating-input-bar input,
+.light .floating-input-bar textarea.text-white,
+.light .floating-input-bar input.text-white {
   color: hsl(220, 14%, 10%) !important;
+  caret-color: hsl(220, 14%, 10%) !important;
+}
+
+/* Ensure placeholder is visible but lighter */
+.light .floating-input-bar textarea::placeholder,
+.light .floating-input-bar input::placeholder {
+  color: hsl(220, 9%, 50%) !important;
+  opacity: 1 !important;
 }
 
 /* Muted foreground for labels and hints */
