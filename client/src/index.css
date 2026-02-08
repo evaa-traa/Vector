@@ -522,6 +522,29 @@
   opacity: 1 !important;
 }
 
+/* All input fields and textareas in light mode */
+.light input[type="text"],
+.light input[type="text"].text-white,
+.light textarea,
+.light textarea.text-white {
+  color: hsl(220, 14%, 10%) !important;
+  caret-color: hsl(220, 14%, 10%) !important;
+}
+
+/* Labs editor textarea specifically */
+.light textarea.font-mono,
+.light textarea.font-mono.text-white {
+  color: hsl(220, 14%, 10%) !important;
+  caret-color: hsl(220, 14%, 10%) !important;
+}
+
+/* All input placeholders in light mode */
+.light input::placeholder,
+.light textarea::placeholder {
+  color: hsl(220, 9%, 50%) !important;
+  opacity: 1 !important;
+}
+
 /* Muted foreground for labels and hints */
 .light .text-muted-foreground {
   color: hsl(220, 9%, 40%) !important;
