@@ -204,6 +204,62 @@ function buildPrompt(message, mode) {
   return message;
 }
 
+/* ── Helpers for structured agent-trace parsing ── */
+
+function parseMaybeJson(val) {
+  if (val && typeof val === "object") return val;
+  if (typeof val !== "string") return null;
+  try { return JSON.parse(val); } catch { return null; }
+}
+
+function processAgentTrace(res, traceData) {
+  if (!traceData || typeof traceData !== "object") return;
+  const step = traceData.step;
+
+  if (step === "agent_action") {
+    const actionObj = parseMaybeJson(traceData.action);
+    if (!actionObj) return;
+    const toolRaw = actionObj.tool || "";
+    const toolInput = parseMaybeJson(actionObj.toolInput) || {};
+
+    // Normalize common tool names
+    const isSearch = /tavily|search|serp|google/i.test(toolRaw);
+    const isBrowser = /browser|scrape|crawl|fetch/i.test(toolRaw);
+
+    if (isSearch) {
+      const query = toolInput.input || toolInput.query || toolInput.q || "";
+      sendEvent(res, "agentStep", { type: "search", query });
+      sendEvent(res, "activity", { state: "searching" });
+    } else if (isBrowser) {
+      const url = toolInput.input || toolInput.url || "";
+      sendEvent(res, "agentStep", { type: "browse", url });
+      sendEvent(res, "activity", { state: "reading" });
+    } else {
+      sendEvent(res, "agentStep", { type: "tool", tool: toolRaw });
+      sendEvent(res, "activity", { state: "tool", tool: toolRaw });
+    }
+    return;
+  }
+
+  if (step === "tool_end") {
+    const output = parseMaybeJson(traceData.output);
+    if (Array.isArray(output)) {
+      const sources = output
+        .filter(item => item && item.url)
+        .map(item => ({ url: item.url, title: item.title || "" }))
+        .slice(0, 8);
+      if (sources.length > 0) {
+        sendEvent(res, "agentStep", { type: "sources", items: sources });
+      }
+    } else if (typeof output === "string" && output.startsWith("**Summary")) {
+      // Web browser tool returned a readable summary — skip, not actionable
+    }
+    return;
+  }
+
+  // tool_start is redundant with agent_action — silently consume
+}
+
 async function streamFlowise({
   res,
   model,
@@ -339,6 +395,11 @@ async function streamFlowise({
         }
         return;
       }
+
+      if (upstreamEventName === "agent_trace") {
+        processAgentTrace(res, parseMaybeJson(raw));
+        return;
+      }
     }
 
     let parsed = null;
@@ -403,6 +464,12 @@ async function streamFlowise({
               sendEvent(res, "activity", { state: step });
             }
           }
+          return;
+        }
+
+        if (innerEvent === "agent_trace") {
+          const traceData = innerData && typeof innerData === "object" ? innerData : parseMaybeJson(innerData);
+          processAgentTrace(res, traceData);
           return;
         }
       }

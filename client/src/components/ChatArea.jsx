@@ -19,7 +19,8 @@ import {
   Paperclip,
   Mic,
   X,
-  Check
+  Check,
+  ChevronDown
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -359,28 +360,14 @@ const MessageRow = React.memo(({
           {msg.role === "user" ? "You" : "Vector"}
         </div>
 
-        {phase && (
-          <div className="flex flex-col gap-1.5 mb-2">
-            <div className="flex items-center gap-2">
-              <StreamingStatus phase={phase} toolName={activeToolName} />
-            </div>
-            {toolActivities.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {toolActivities.map((name) => (
-                  <motion.span
-                    key={name}
-                    initial={{ opacity: 0, scale: 0.9, y: 4 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                    className="activity-chip"
-                  >
-                    <span className="text-[10px]">🔧</span>
-                    {name}
-                  </motion.span>
-                ))}
-              </div>
-            )}
-          </div>
+        {/* Activity panel — shows while streaming OR persists after streaming for completed steps */}
+        {msg.role === "assistant" && (msg.agentSteps?.length > 0 || phase) && (
+          <ActivityPanel
+            steps={msg.agentSteps || []}
+            phase={phase}
+            toolName={activeToolName}
+            isStreaming={isStreaming && isLastAssistant}
+          />
         )}
 
         <div className={cn("text-[15px] leading-[1.6] w-full", msg.role === "user" && "text-right")}>
@@ -1006,6 +993,145 @@ function ActionBtn({ icon, label, onClick }) {
       <span className="hidden sm:inline">{label}</span>
     </button>
   )
+}
+
+/* ── Collapsible Activity Panel (Gemini/Perplexity-style) ── */
+function ActivityPanel({ steps, phase, toolName, isStreaming }) {
+  const [expanded, setExpanded] = React.useState(false);
+
+  const searchCount = steps.filter(s => s.type === "search").length;
+  const sourceCount = steps.filter(s => s.type === "sources").reduce((n, s) => n + (s.items?.length || 0), 0);
+  const browseCount = steps.filter(s => s.type === "browse").length;
+
+  // Auto-expand when first step arrives during streaming
+  React.useEffect(() => {
+    if (steps.length === 1 && isStreaming) setExpanded(true);
+  }, [steps.length, isStreaming]);
+
+  // Build summary text
+  const summaryParts = [];
+  if (searchCount > 0) summaryParts.push(`Searched ${searchCount} ${searchCount === 1 ? "query" : "queries"}`);
+  if (sourceCount > 0) summaryParts.push(`Found ${sourceCount} ${sourceCount === 1 ? "source" : "sources"}`);
+  if (browseCount > 0) summaryParts.push(`Read ${browseCount} ${browseCount === 1 ? "page" : "pages"}`);
+  const summaryText = summaryParts.join(" · ") || "Working…";
+
+  return (
+    <div className="activity-panel mb-2 w-full max-w-[540px]">
+      {/* Header / toggle */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="activity-panel-header"
+        aria-expanded={expanded}
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          {isStreaming && phase ? (
+            <span className="flex items-center gap-1">
+              <span className="thinking-dot w-1 h-1 rounded-full bg-muted-foreground/80" style={{ animationDelay: "0ms" }} />
+              <span className="thinking-dot w-1 h-1 rounded-full bg-muted-foreground/80" style={{ animationDelay: "140ms" }} />
+              <span className="thinking-dot w-1 h-1 rounded-full bg-muted-foreground/80" style={{ animationDelay: "280ms" }} />
+            </span>
+          ) : (
+            <span className="text-[12px]">✅</span>
+          )}
+          <span className="truncate">{isStreaming && phase ? summaryText : summaryText}</span>
+        </span>
+        <ChevronDown
+          size={14}
+          className={cn(
+            "shrink-0 transition-transform duration-200",
+            expanded ? "rotate-180" : ""
+          )}
+        />
+      </button>
+
+      {/* Expanded step list */}
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="activity-panel-body">
+              {steps.map((step, i) => (
+                <ActivityStepRow key={i} step={step} />
+              ))}
+              {isStreaming && phase && (
+                <div className="activity-step-row">
+                  <span className="activity-step-icon">
+                    {phase === "searching" ? "🔍" : phase === "reading" ? "📖" : phase === "tool" ? "🔧" : "💭"}
+                  </span>
+                  <span className="text-muted-foreground/70 italic">
+                    {phase === "searching" ? "Searching…" : phase === "reading" ? `Reading…` : phase === "tool" ? `Using ${toolName || "tool"}…` : "Thinking…"}
+                  </span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function ActivityStepRow({ step }) {
+  if (step.type === "search") {
+    return (
+      <div className="activity-step-row">
+        <span className="activity-step-icon">🔍</span>
+        <span>Searched: <span className="text-foreground/80 font-medium">"{step.query}"</span></span>
+      </div>
+    );
+  }
+  if (step.type === "browse") {
+    let displayUrl = step.url;
+    try { displayUrl = new URL(step.url).hostname; } catch { }
+    return (
+      <div className="activity-step-row">
+        <span className="activity-step-icon">🌐</span>
+        <span>Reading: <a href={step.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{displayUrl}</a></span>
+      </div>
+    );
+  }
+  if (step.type === "sources") {
+    return (
+      <div className="activity-step-sources">
+        {step.items?.map((src, j) => {
+          let domain = src.url;
+          try { domain = new URL(src.url).hostname.replace("www.", ""); } catch { }
+          return (
+            <a
+              key={j}
+              href={src.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="activity-source-chip"
+              title={src.title}
+            >
+              <img
+                src={`https://www.google.com/s2/favicons?domain=${domain}&sz=16`}
+                alt=""
+                className="w-3.5 h-3.5 rounded-sm"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+              <span className="truncate">{src.title || domain}</span>
+            </a>
+          );
+        })}
+      </div>
+    );
+  }
+  if (step.type === "tool") {
+    return (
+      <div className="activity-step-row">
+        <span className="activity-step-icon">🔧</span>
+        <span>Used tool: <span className="font-medium">{step.tool}</span></span>
+      </div>
+    );
+  }
+  return null;
 }
 
 function StreamingStatus({ phase, toolName }) {

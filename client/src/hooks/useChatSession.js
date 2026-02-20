@@ -442,6 +442,20 @@ export function useChatSession() {
           }));
         }
 
+        if (eventName === "agentStep") {
+          updateSession(activeSession.id, (session) => ({
+            ...session,
+            messages: session.messages.map((msg) =>
+              msg.id === assistantMessage.id
+                ? {
+                  ...msg,
+                  agentSteps: [...(msg.agentSteps || []), parsed]
+                }
+                : msg
+            )
+          }));
+        }
+
         if (eventName === "error") {
           updateSession(activeSession.id, (session) => ({
             ...session,
