@@ -394,21 +394,22 @@ function SelectionToolbar({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 5, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="fixed z-50 bg-[#1E1E1E] border border-border rounded-xl shadow-xl"
+            className="fixed z-[9999] bg-[#1a1a2e] border-2 border-primary/40 rounded-xl shadow-2xl"
             style={{
                 left: `${Math.min(Math.max(position.x, 160), window.innerWidth - 160)}px`,
                 top: `${position.y}px`,
                 transform: "translateX(-50%)",
-                maxWidth: "calc(100vw - 16px)"
+                maxWidth: "calc(100vw - 16px)",
+                boxShadow: "0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(34,211,238,0.15)"
             }}
         >
             {!showInput ? (
                 <button
                     onClick={() => setShowInput(true)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white hover:bg-foreground/10 rounded-xl transition-colors"
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-white hover:bg-foreground/10 rounded-xl transition-colors"
                 >
-                    <Sparkles size={14} className="text-primary" />
-                    AI Edit
+                    <Sparkles size={16} className="text-primary" />
+                    <span>AI Edit Selection</span>
                 </button>
             ) : (
                 <div className="p-2 min-w-[280px]">
@@ -620,18 +621,25 @@ export default function LabsEditor({
             const lines = textBeforeSelection.split('\n');
             const currentLine = lines.length;
             const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
+            const scrollTop = textarea.scrollTop;
 
             const rawX = rect.left + rect.width / 2;
-            const y = rect.top + (currentLine * lineHeight) - 30;
+            // Account for scroll position when calculating y
+            const rawY = rect.top + (currentLine * lineHeight) - scrollTop - 40;
             // Clamp x so toolbar stays within viewport
             const x = Math.min(Math.max(rawX, 160), window.innerWidth - 160);
+            // Clamp y to stay within the textarea's visible bounds
+            const y = Math.min(
+                Math.max(rawY, rect.top + 10),
+                rect.bottom - 50
+            );
 
             setSelection({
                 start,
                 end,
                 text: selectedText
             });
-            setToolbarPosition({ x, y: Math.max(y, rect.top + 10) });
+            setToolbarPosition({ x, y });
         } else {
             closeToolbar();
         }
