@@ -13,7 +13,11 @@ const ACTIVITY_LABELS = {
   searching: "Searching",
   reading: "Reading sources",
   reasoning: "Reasoning",
-  writing: "Writing answer"
+  writing: "Writing answer",
+  tool: "Using tool",
+  thinking: "Thinking",
+  planning: "Planning",
+  executing: "Executing"
 };
 
 // Global history - all sessions stored together with their modelId
@@ -420,6 +424,9 @@ export function useChatSession() {
         }
 
         if (eventName === "activity") {
+          const activityKey = parsed.tool
+            ? `tool:${parsed.tool}`
+            : parsed.state;
           updateSession(activeSession.id, (session) => ({
             ...session,
             messages: session.messages.map((msg) =>
@@ -427,7 +434,7 @@ export function useChatSession() {
                 ? {
                   ...msg,
                   activities: Array.from(
-                    new Set([...(msg.activities || []), parsed.state])
+                    new Set([...(msg.activities || []), activityKey])
                   )
                 }
                 : msg

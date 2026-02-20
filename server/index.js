@@ -317,7 +317,26 @@ async function streamFlowise({
         return;
       }
 
-      if (upstreamEventName === "usedTools" || upstreamEventName === "agentFlowEvent") {
+      if (upstreamEventName === "usedTools") {
+        let toolData = parseMaybeJson(raw);
+        if (toolData) {
+          const tools = Array.isArray(toolData) ? toolData : [toolData];
+          for (const t of tools) {
+            const toolName = t.tool || t.name || t.toolName || "Tool";
+            sendEvent(res, "activity", { state: "tool", tool: toolName });
+          }
+        }
+        return;
+      }
+
+      if (upstreamEventName === "agentFlowEvent") {
+        let flowData = parseMaybeJson(raw);
+        if (flowData) {
+          const step = flowData.step || flowData.state || flowData.type || "";
+          if (step) {
+            sendEvent(res, "activity", { state: step });
+          }
+        }
         return;
       }
     }
@@ -364,7 +383,26 @@ async function streamFlowise({
           return;
         }
 
-        if (innerEvent === "usedTools" || innerEvent === "agentFlowEvent") {
+        if (innerEvent === "usedTools") {
+          let toolData = innerData && typeof innerData === "object" ? innerData : parseMaybeJson(innerData);
+          if (toolData) {
+            const tools = Array.isArray(toolData) ? toolData : [toolData];
+            for (const t of tools) {
+              const toolName = t.tool || t.name || t.toolName || "Tool";
+              sendEvent(res, "activity", { state: "tool", tool: toolName });
+            }
+          }
+          return;
+        }
+
+        if (innerEvent === "agentFlowEvent") {
+          let flowData = innerData && typeof innerData === "object" ? innerData : parseMaybeJson(innerData);
+          if (flowData) {
+            const step = flowData.step || flowData.state || flowData.type || "";
+            if (step) {
+              sendEvent(res, "activity", { state: step });
+            }
+          }
           return;
         }
       }
@@ -401,19 +439,12 @@ async function streamFlowise({
 }
 
 function scheduleActivities(res, mode) {
-  const steps =
-    mode === "research"
-      ? ["searching", "reading", "reasoning", "writing"]
-      : ["writing"];
-  const baseDelay = mode === "research" ? 800 : 500;
-  const timers = steps.map((step, index) =>
-    setTimeout(() => {
-      sendEvent(res, "activity", { state: step });
-    }, (index + 1) * baseDelay)
-  );
-  return () => {
-    timers.forEach((timer) => clearTimeout(timer));
-  };
+  // Lightweight fallback: just send "thinking" after a short delay.
+  // Real activities from Flowise metadata will override this.
+  const timer = setTimeout(() => {
+    sendEvent(res, "activity", { state: "thinking" });
+  }, 1200);
+  return () => clearTimeout(timer);
 }
 
 app.get("/models", async (req, res) => {

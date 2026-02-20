@@ -305,13 +305,29 @@ const MessageRow = React.memo(({
 
   // Only show phase animation for the LAST assistant message AND when streaming
   let phase = null;
+  let activeToolName = null;
+  const toolActivities = hasActivities
+    ? msg.activities.filter(a => a.startsWith("tool:")).map(a => a.slice(5))
+    : [];
+
   if (isStreaming && isLastAssistant && msg.role === "assistant") {
-    if (!hasActivities) {
+    if (toolActivities.length > 0) {
+      phase = "tool";
+      activeToolName = toolActivities[toolActivities.length - 1];
+    } else if (!hasActivities) {
       phase = showSearching ? "searching" : "thinking";
     } else if (msg.activities.includes("reasoning")) {
       phase = "reasoning";
     } else if (msg.activities.includes("searching")) {
       phase = "searching";
+    } else if (msg.activities.includes("reading")) {
+      phase = "reading";
+    } else if (msg.activities.includes("planning")) {
+      phase = "planning";
+    } else if (msg.activities.includes("executing")) {
+      phase = "executing";
+    } else if (msg.activities.includes("writing")) {
+      phase = "writing";
     } else {
       phase = "thinking";
     }
@@ -344,18 +360,26 @@ const MessageRow = React.memo(({
         </div>
 
         {phase && (
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <StreamingStatus phase={phase} />
-            {hasActivities && msg.activities
-              .filter(a => a !== 'writing')
-              .slice(-4).map((state) => (
-                <span
-                  key={state}
-                  className="inline-flex items-center rounded-full border border-border bg-foreground/5 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
-                >
-                  {activityLabels?.[state] || state}
-                </span>
-              ))}
+          <div className="flex flex-col gap-1.5 mb-2">
+            <div className="flex items-center gap-2">
+              <StreamingStatus phase={phase} toolName={activeToolName} />
+            </div>
+            {toolActivities.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {toolActivities.map((name) => (
+                  <motion.span
+                    key={name}
+                    initial={{ opacity: 0, scale: 0.9, y: 4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                    className="activity-chip"
+                  >
+                    <span className="text-[10px]">🔧</span>
+                    {name}
+                  </motion.span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -984,16 +1008,21 @@ function ActionBtn({ icon, label, onClick }) {
   )
 }
 
-function StreamingStatus({ phase }) {
-  let label = "Thinking";
-  if (phase === "searching") {
-    label = "Searching";
-  } else if (phase === "reasoning") {
-    label = "Analyzing";
-  }
+function StreamingStatus({ phase, toolName }) {
+  const config = {
+    thinking: { icon: "💭", label: "Thinking" },
+    searching: { icon: "🔍", label: "Searching" },
+    reasoning: { icon: "🧠", label: "Analyzing" },
+    tool: { icon: "🔧", label: toolName ? `Using ${toolName}` : "Using tool" },
+    reading: { icon: "📖", label: "Reading sources" },
+    writing: { icon: "✍️", label: "Writing" },
+    planning: { icon: "📋", label: "Planning" },
+    executing: { icon: "⚡", label: "Executing" },
+  };
+  const { icon, label } = config[phase] || config.thinking;
 
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-border bg-foreground/5 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+    <div className="inline-flex items-center gap-2 rounded-full border border-border bg-foreground/5 px-3 py-1.5 text-[12px] font-medium text-muted-foreground">
       <span className="flex items-center gap-1">
         <span className="thinking-dot w-1 h-1 rounded-full bg-muted-foreground/80" style={{ animationDelay: "0ms" }} />
         <span className="thinking-dot w-1 h-1 rounded-full bg-muted-foreground/80" style={{ animationDelay: "140ms" }} />
@@ -1002,11 +1031,13 @@ function StreamingStatus({ phase }) {
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={label}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.16 }}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          className="inline-flex items-center gap-1.5"
         >
+          <span className="text-[11px]">{icon}</span>
           {label}…
         </motion.span>
       </AnimatePresence>
