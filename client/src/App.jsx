@@ -61,6 +61,26 @@ export default function App() {
     localStorage.setItem("flowise_theme", theme);
   }, [theme]);
 
+  // Fix mobile viewport height - reliable cross-browser approach
+  useEffect(() => {
+    const setAppHeight = () => {
+      const vh = window.innerHeight;
+      document.documentElement.style.setProperty('--app-height', `${vh}px`);
+      document.documentElement.classList.add('has-app-height');
+    };
+    setAppHeight();
+    window.addEventListener('resize', setAppHeight);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', setAppHeight);
+    }
+    return () => {
+      window.removeEventListener('resize', setAppHeight);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', setAppHeight);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "n") {
@@ -111,7 +131,7 @@ export default function App() {
         historyList={historyList}
         activeSessionId={activeSessionId}
         onSelectSession={handleSelectSession}
-        isSessionLocked={activeView === "labs" ? labsProjectLocked : isSessionLocked}
+        isSessionLocked={activeView === "labs" ? false : isSessionLocked}
         theme={theme}
         onToggleTheme={() =>
           setTheme((prev) => (prev === "dark" ? "light" : "dark"))
@@ -142,9 +162,6 @@ export default function App() {
           <LabsArea
             toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
             sidebarOpen={sidebarOpen}
-            selectedModelId={selectedModelId}
-            onModelChange={setSelectedModelId}
-            models={models}
             onProjectLockChange={setLabsProjectLocked}
           />
         )}

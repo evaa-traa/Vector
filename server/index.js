@@ -5,6 +5,29 @@ const morgan = require("morgan");
 const { createParser } = require("eventsource-parser");
 const { loadModelsFromEnv, loadModelsFromEnvDetailed, loadPublicModels } = require("./models");
 
+/**
+ * Load the dedicated Labs model from LABS_MODEL_* env vars.
+ * Falls back to the first regular model if not set.
+ */
+function loadLabsModel() {
+  const name = process.env.LABS_MODEL_NAME || "Labs Model";
+  const id = (process.env.LABS_MODEL_ID || "").trim();
+  const host = (process.env.LABS_MODEL_HOST || "").trim().replace(/\/$/, "");
+  const apiKey = (process.env.LABS_MODEL_API_KEY || "").trim();
+  const authHeader = (process.env.LABS_MODEL_AUTH_HEADER || "").trim();
+  const authValue = (process.env.LABS_MODEL_AUTH_VALUE || "").trim();
+
+  if (id && host) {
+    return { name, id, host, index: "labs", apiKey, authHeader, authValue };
+  }
+  // Fallback to first regular model
+  const detailed = loadModelsFromEnvDetailed(process.env);
+  if (detailed.models.length > 0) {
+    return { ...detailed.models[0], name: name || detailed.models[0].name };
+  }
+  return null;
+}
+
 require("dotenv").config();
 
 const app = express();
@@ -410,6 +433,15 @@ app.get("/models", async (req, res) => {
   res.json({ models: enriched, issues });
 });
 
+// Expose the dedicated Labs model info to the client
+app.get("/labs-model", (req, res) => {
+  const labsModel = loadLabsModel();
+  if (!labsModel) {
+    return res.json({ model: null, error: "No Labs model configured" });
+  }
+  res.json({ model: { name: labsModel.name } });
+});
+
 app.post("/chat", async (req, res) => {
   const { message, modelId, mode, sessionId, uploads } = req.body || {};
   if (
@@ -553,18 +585,10 @@ app.post("/labs-edit", async (req, res) => {
     return res.status(400).json({ error: "Invalid instruction" });
   }
 
-  // Resolve model
-  const detailed = loadModelsFromEnvDetailed(process.env);
-  let model = null;
-  if (typeof modelId === "string" && modelId.trim() !== "") {
-    const idx = Number(modelId);
-    model = detailed.models.find((item) => item.index === idx) || null;
-  }
+  // Use the dedicated Labs model (ignoring client-side modelId)
+  const model = loadLabsModel();
   if (!model) {
-    model = detailed.models[0] || null;
-  }
-  if (!model) {
-    return res.status(404).json({ error: "Model not found" });
+    return res.status(404).json({ error: "No Labs model configured" });
   }
 
   // Build the prompt based on whether document exists
@@ -626,18 +650,10 @@ app.post("/labs-edit-selection", async (req, res) => {
     return res.status(400).json({ error: "Invalid instruction" });
   }
 
-  // Resolve model
-  const detailed = loadModelsFromEnvDetailed(process.env);
-  let model = null;
-  if (typeof modelId === "string" && modelId.trim() !== "") {
-    const idx = Number(modelId);
-    model = detailed.models.find((item) => item.index === idx) || null;
-  }
+  // Use the dedicated Labs model (ignoring client-side modelId)
+  const model = loadLabsModel();
   if (!model) {
-    model = detailed.models[0] || null;
-  }
-  if (!model) {
-    return res.status(404).json({ error: "Model not found" });
+    return res.status(404).json({ error: "No Labs model configured" });
   }
 
   // Build prompt for surgical editing

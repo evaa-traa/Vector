@@ -396,9 +396,10 @@ function SelectionToolbar({
             transition={{ duration: 0.15 }}
             className="fixed z-50 bg-[#1E1E1E] border border-border rounded-xl shadow-xl"
             style={{
-                left: `${position.x}px`,
+                left: `${Math.min(Math.max(position.x, 160), window.innerWidth - 160)}px`,
                 top: `${position.y}px`,
-                transform: "translateX(-50%)"
+                transform: "translateX(-50%)",
+                maxWidth: "calc(100vw - 16px)"
             }}
         >
             {!showInput ? (
@@ -467,8 +468,7 @@ export default function LabsEditor({
     content,
     onChange,
     isProcessing,
-    onSelectionEdit,
-    modelId
+    onSelectionEdit
 }) {
     const [mode, setMode] = useState("edit");
     const textareaRef = useRef(null);
@@ -621,8 +621,10 @@ export default function LabsEditor({
             const currentLine = lines.length;
             const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
 
-            const x = rect.left + rect.width / 2;
+            const rawX = rect.left + rect.width / 2;
             const y = rect.top + (currentLine * lineHeight) - 30;
+            // Clamp x so toolbar stays within viewport
+            const x = Math.min(Math.max(rawX, 160), window.innerWidth - 160);
 
             setSelection({
                 start,
@@ -663,8 +665,7 @@ export default function LabsEditor({
                 selectedText: selection.text,
                 instruction,
                 contextBefore,
-                contextAfter,
-                modelId
+                contextAfter
             });
 
             if (replacement) {

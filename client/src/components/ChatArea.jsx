@@ -860,6 +860,52 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
                 Listening... speak now
               </div>
             )}
+            {/* Cancel and Done buttons */}
+            <div className="flex items-center gap-3 mt-2">
+              <button
+                onClick={() => {
+                  // Cancel: stop recording and clear text
+                  if (recognitionRef.current) {
+                    recognitionRef.current.stop();
+                    recognitionRef.current = null;
+                  }
+                  if (audioStream) {
+                    audioStream.getTracks().forEach(track => track.stop());
+                    setAudioStream(null);
+                  }
+                  setIsRecording(false);
+                  setInterimTranscript("");
+                  onChange(""); // Clear transcribed text
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors"
+                aria-label="Cancel recording"
+              >
+                <X size={14} />
+                <span>Cancel</span>
+              </button>
+              <button
+                onClick={() => {
+                  // Done: stop recording but keep the text
+                  if (recognitionRef.current) {
+                    recognitionRef.current.stop();
+                    recognitionRef.current = null;
+                  }
+                  if (audioStream) {
+                    audioStream.getTracks().forEach(track => track.stop());
+                    setAudioStream(null);
+                  }
+                  setIsRecording(false);
+                  setInterimTranscript("");
+                  // Focus textarea after a brief delay
+                  setTimeout(() => textareaRef.current?.focus(), 100);
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-green-400 bg-green-500/10 hover:bg-green-500/20 transition-colors"
+                aria-label="Done recording"
+              >
+                <Check size={14} />
+                <span>Done</span>
+              </button>
+            </div>
           </div>
         ) : (
           <textarea

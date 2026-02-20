@@ -42,7 +42,7 @@ function saveProjects(projects) {
 /**
  * Hook for managing Labs projects with localStorage persistence.
  */
-export function useLabsProjects(selectedModelId, onModelChange = null, models = []) {
+export function useLabsProjects() {
   // Initialize state from localStorage immediately
   const [projects, setProjects] = useState(() => {
     const loaded = loadProjects();
@@ -67,6 +67,17 @@ export function useLabsProjects(selectedModelId, onModelChange = null, models = 
     return (activeProject.document?.trim().length ?? 0) > 0;
   }, [activeProject]);
 
+  // Fetch Labs model name from server
+  const [labsModelName, setLabsModelName] = useState("");
+  useEffect(() => {
+    fetch("/labs-model")
+      .then(r => r.json())
+      .then(data => {
+        if (data.model?.name) setLabsModelName(data.model.name);
+      })
+      .catch(() => { });
+  }, []);
+
   // Save to localStorage whenever projects change
   useEffect(() => {
     if (projects.length > 0) {
@@ -76,12 +87,11 @@ export function useLabsProjects(selectedModelId, onModelChange = null, models = 
 
   // Create a fresh project if none exist
   useEffect(() => {
-    if (projects.length === 0 && selectedModelId) {
+    if (projects.length === 0) {
       console.log("[Labs] Creating initial project");
       const newProject = {
         id: crypto.randomUUID(),
         sessionId: crypto.randomUUID(),
-        modelId: selectedModelId,
         name: "Untitled Project",
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -90,25 +100,17 @@ export function useLabsProjects(selectedModelId, onModelChange = null, models = 
       setProjects([newProject]);
       setActiveProjectIdState(newProject.id);
     }
-  }, [projects.length, selectedModelId]);
-
-  // Switch model when selecting a project with content
-  useEffect(() => {
-    if (activeProject?.modelId && activeProject.document?.trim() && onModelChange) {
-      onModelChange(activeProject.modelId);
-    }
-  }, [activeProjectId]); // Only on project switch
+  }, [projects.length]);
 
   // Sorted list (newest first)
   const projectList = useMemo(() => {
     return [...projects].sort((a, b) => b.updatedAt - a.updatedAt);
   }, [projects]);
 
-  // Get model name
-  const getModelName = useCallback((modelId) => {
-    const model = models.find(m => m.id === modelId);
-    return model?.name || `Model ${modelId}`;
-  }, [models]);
+  // Get model name (always returns the Labs model name)
+  const getModelName = useCallback(() => {
+    return labsModelName || "Labs Model";
+  }, [labsModelName]);
 
   /**
    * Set active project
@@ -128,7 +130,6 @@ export function useLabsProjects(selectedModelId, onModelChange = null, models = 
     const newProject = {
       id: crypto.randomUUID(),
       sessionId: crypto.randomUUID(),
-      modelId: selectedModelId,
       name,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -138,7 +139,7 @@ export function useLabsProjects(selectedModelId, onModelChange = null, models = 
     setActiveProjectIdState(newProject.id);
     console.log(`[Labs] Created: ${name}`);
     return newProject;
-  }, [selectedModelId]);
+  }, []);
 
   /**
    * Import document
@@ -197,15 +198,15 @@ export function useLabsProjects(selectedModelId, onModelChange = null, models = 
     if (!activeProjectId) return;
     setProjects(prev => prev.map(p =>
       p.id === activeProjectId
-        ? { ...p, document: newDocument, updatedAt: Date.now(), modelId: p.modelId || selectedModelId }
+        ? { ...p, document: newDocument, updatedAt: Date.now() }
         : p
     ));
-  }, [activeProjectId, selectedModelId]);
+  }, [activeProjectId]);
 
   /**
    * AI Edit
    */
-  const handleAIEdit = useCallback(async (instruction, modelId) => {
+  const handleAIEdit = useCallback(async (instruction) => {
     if (!activeProject) return null;
     setIsProcessing(true);
     console.log(`[Labs] AI Edit with session: ${activeProject.sessionId}`);
@@ -217,7 +218,6 @@ export function useLabsProjects(selectedModelId, onModelChange = null, models = 
         body: JSON.stringify({
           document: activeProject.document,
           instruction,
-          modelId,
           sessionId: activeProject.sessionId
         })
       });
@@ -286,6 +286,7 @@ export function useLabsProjects(selectedModelId, onModelChange = null, models = 
     handleUpdateDocument,
     handleAIEdit,
     forceSync,
-    getModelName
+    getModelName,
+    labsModelName
   };
 }

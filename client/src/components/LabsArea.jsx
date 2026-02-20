@@ -139,9 +139,6 @@ function ProjectItem({ project, isActive, onSelect, onRename, onDelete, modelNam
 export default function LabsArea({
     toggleSidebar,
     sidebarOpen,
-    selectedModelId,
-    onModelChange,
-    models = [],
     onProjectLockChange
 }) {
     const {
@@ -159,7 +156,7 @@ export default function LabsArea({
         handleAIEdit,
         forceSync,
         getModelName
-    } = useLabsProjects(selectedModelId, onModelChange, models);
+    } = useLabsProjects();
 
     const [instruction, setInstruction] = useState("");
     const [error, setError] = useState("");
@@ -224,7 +221,7 @@ export default function LabsArea({
         setError("");
 
         try {
-            await handleAIEdit(instruction.trim(), selectedModelId);
+            await handleAIEdit(instruction.trim());
             setInstruction("");
         } catch (err) {
             setError(err.message || "Failed to process instruction");
@@ -232,7 +229,7 @@ export default function LabsArea({
     };
 
     // Handle selection-based AI editing
-    const handleSelectionEdit = async ({ selectedText, instruction, contextBefore, contextAfter, modelId }) => {
+    const handleSelectionEdit = async ({ selectedText, instruction, contextBefore, contextAfter }) => {
         try {
             const response = await fetch("/labs-edit-selection", {
                 method: "POST",
@@ -242,7 +239,6 @@ export default function LabsArea({
                     instruction,
                     contextBefore,
                     contextAfter,
-                    modelId,
                     sessionId: activeProject?.sessionId
                 })
             });
@@ -431,7 +427,7 @@ export default function LabsArea({
                                             }}
                                             onRename={handleRenameProject}
                                             onDelete={handleDeleteProject}
-                                            modelName={project.modelId ? getModelName(project.modelId) : null}
+                                            modelName={getModelName()}
                                         />
                                     ))}
                                 </AnimatePresence>
@@ -533,7 +529,6 @@ export default function LabsArea({
                                     onChange={handleDocumentChange}
                                     isProcessing={isProcessing}
                                     onSelectionEdit={handleSelectionEdit}
-                                    modelId={selectedModelId}
                                 />
                             </div>
 
