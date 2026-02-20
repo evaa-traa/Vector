@@ -352,7 +352,8 @@ function MarkdownPreview({ content }) {
 }
 
 /**
- * Floating AI Edit Toolbar that appears when text is selected
+ * AI Edit Toolbar — bottom sheet on mobile, floating popover on desktop.
+ * Inspired by Google Docs / Notion mobile editing UX.
  */
 function SelectionToolbar({
     position,
@@ -362,20 +363,26 @@ function SelectionToolbar({
     isProcessing
 }) {
     const [instruction, setInstruction] = useState("");
-    const [showInput, setShowInput] = useState(false);
     const inputRef = useRef(null);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     useEffect(() => {
-        if (showInput && inputRef.current) {
-            inputRef.current.focus();
-        }
-    }, [showInput]);
+        const check = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener("resize", check);
+        return () => window.removeEventListener("resize", check);
+    }, []);
+
+    // Auto-focus the input
+    useEffect(() => {
+        // Small delay to let animation complete
+        const t = setTimeout(() => inputRef.current?.focus(), 200);
+        return () => clearTimeout(t);
+    }, []);
 
     const handleSubmit = () => {
         if (instruction.trim() && !isProcessing) {
             onSubmit(instruction.trim());
             setInstruction("");
-            setShowInput(false);
         }
     };
 
@@ -388,73 +395,133 @@ function SelectionToolbar({
         }
     };
 
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 5, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 5, scale: 0.95 }}
-            transition={{ duration: 0.15 }}
-            className="fixed z-[9999] bg-[#1a1a2e] border-2 border-primary/40 rounded-xl shadow-2xl"
-            style={{
-                left: `${Math.min(Math.max(position.x, 160), window.innerWidth - 160)}px`,
-                top: `${position.y}px`,
-                transform: "translateX(-50%)",
-                maxWidth: "calc(100vw - 16px)",
-                boxShadow: "0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(34,211,238,0.15)"
-            }}
-        >
-            {!showInput ? (
-                <button
-                    onClick={() => setShowInput(true)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-white hover:bg-foreground/10 rounded-xl transition-colors"
-                >
-                    <Sparkles size={16} className="text-primary" />
-                    <span>AI Edit Selection</span>
-                </button>
-            ) : (
-                <div className="p-2 min-w-[280px]">
-                    <div className="flex items-center gap-2 mb-2 px-2">
-                        <Sparkles size={14} className="text-primary shrink-0" />
-                        <span className="text-xs text-muted-foreground truncate">
-                            Editing: "{selectedText.slice(0, 30)}{selectedText.length > 30 ? '...' : ''}"
-                        </span>
-                        <button
-                            onClick={onClose}
-                            className="ml-auto p-1 hover:bg-foreground/10 rounded"
-                        >
-                            <X size={12} />
-                        </button>
+    const preview = selectedText.length > 60
+        ? selectedText.slice(0, 60) + "…"
+        : selectedText;
+
+    /* ── Inner content (shared by both layouts) ── */
+    const innerContent = (
+        <div className="selection-toolbar-inner">
+            {/* Header with selected text preview */}
+            <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                        <Sparkles size={14} className="text-primary" />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={instruction}
-                            onChange={(e) => setInstruction(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="What should I change?"
-                            disabled={isProcessing}
-                            className="flex-1 bg-foreground/5 border border-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-muted-foreground outline-none focus:border-primary/50"
-                        />
-                        <button
-                            onClick={handleSubmit}
-                            disabled={!instruction.trim() || isProcessing}
-                            className={cn(
-                                "p-2 rounded-lg transition-colors",
-                                instruction.trim() && !isProcessing
-                                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                                    : "bg-foreground/10 text-muted-foreground/50 cursor-not-allowed"
-                            )}
-                        >
-                            {isProcessing ? (
-                                <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                                <Send size={14} />
-                            )}
-                        </button>
+                    <div className="min-w-0">
+                        <div className="text-xs font-semibold text-white">AI Edit Selection</div>
+                        <div className="text-[11px] text-muted-foreground truncate">
+                            "{preview}"
+                        </div>
                     </div>
                 </div>
-            )}
+                <button
+                    onClick={onClose}
+                    className="p-1.5 hover:bg-foreground/10 rounded-lg text-muted-foreground hover:text-white transition-colors shrink-0"
+                    aria-label="Close"
+                >
+                    <X size={16} />
+                </button>
+            </div>
+
+            {/* Instruction input */}
+            <div className="flex items-center gap-2">
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={instruction}
+                    onChange={(e) => setInstruction(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Describe the change…"
+                    disabled={isProcessing}
+                    className="flex-1 bg-foreground/5 border border-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-muted-foreground/60 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
+                    autoComplete="off"
+                />
+                <button
+                    onClick={handleSubmit}
+                    disabled={!instruction.trim() || isProcessing}
+                    className={cn(
+                        "p-2.5 rounded-xl transition-all",
+                        instruction.trim() && !isProcessing
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20"
+                            : "bg-foreground/10 text-muted-foreground/50 cursor-not-allowed"
+                    )}
+                >
+                    {isProcessing ? (
+                        <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                        <Send size={16} />
+                    )}
+                </button>
+            </div>
+
+            {/* Quick action chips */}
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+                {["Fix grammar", "Make shorter", "Make formal", "Simplify"].map(label => (
+                    <button
+                        key={label}
+                        onClick={() => {
+                            if (!isProcessing) onSubmit(label);
+                        }}
+                        disabled={isProcessing}
+                        className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-border bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-white transition-colors disabled:opacity-50"
+                    >
+                        {label}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+
+    /* ── Mobile: bottom sheet with backdrop ── */
+    if (isMobile) {
+        return (
+            <>
+                {/* Backdrop */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 z-[9998] bg-black/40"
+                    onClick={onClose}
+                />
+                {/* Bottom sheet */}
+                <motion.div
+                    initial={{ opacity: 0, y: 80 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 80 }}
+                    transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                    className="fixed bottom-0 left-0 right-0 z-[9999] selection-toolbar-sheet"
+                >
+                    {/* Drag handle */}
+                    <div className="flex justify-center pt-2 pb-1">
+                        <div className="w-8 h-1 rounded-full bg-foreground/20" />
+                    </div>
+                    {innerContent}
+                </motion.div>
+            </>
+        );
+    }
+
+    /* ── Desktop: floating popover ── */
+    const clampedX = Math.min(Math.max(position.x, 180), window.innerWidth - 180);
+    const clampedY = Math.min(Math.max(position.y, 60), window.innerHeight - 200);
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed z-[9999] selection-toolbar-popover"
+            style={{
+                left: `${clampedX}px`,
+                top: `${clampedY}px`,
+                transform: "translateX(-50%)",
+            }}
+        >
+            {innerContent}
         </motion.div>
     );
 }
