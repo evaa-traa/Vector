@@ -411,7 +411,7 @@
 
 /* ── Selection Toolbar (Labs AI Edit) ── */
 .selection-toolbar-sheet {
-  background: hsl(230, 20%, 12%);
+  background: hsl(var(--card));
   border-top: 1px solid hsl(var(--border));
   border-radius: 20px 20px 0 0;
   padding-bottom: env(safe-area-inset-bottom, 8px);
@@ -419,12 +419,12 @@
 }
 
 .selection-toolbar-popover {
-  background: hsl(230, 20%, 12%);
+  background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-radius: 16px;
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(34, 211, 238, 0.1);
+    0 0 0 1px hsl(var(--border));
   min-width: 320px;
   max-width: 420px;
 }
@@ -872,19 +872,13 @@
   background: rgba(0, 0, 0, 0.07) !important;
 }
 
-/* Selection toolbar light mode */
-.light .selection-toolbar-sheet,
-.light .selection-toolbar-popover {
-  background: hsl(220, 20%, 97%) !important;
-  border-color: hsl(220, 13%, 85%) !important;
-}
-
+/* Selection toolbar light mode — shadows only (colors via CSS vars) */
 .light .selection-toolbar-sheet {
-  box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.1) !important;
 }
 
 .light .selection-toolbar-popover {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(8, 145, 178, 0.1) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px hsl(var(--border)) !important;
 }
 
 /* Streaming status badges */

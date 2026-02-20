@@ -553,6 +553,7 @@ export default function LabsEditor({
     const [selection, setSelection] = useState(null);
     const [toolbarPosition, setToolbarPosition] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [showToolbar, setShowToolbar] = useState(false);
 
     // Sync external content changes
     useEffect(() => {
@@ -715,6 +716,7 @@ export default function LabsEditor({
     const closeToolbar = () => {
         setSelection(null);
         setToolbarPosition(null);
+        setShowToolbar(false);
         setIsEditing(false);
     };
 
@@ -828,6 +830,26 @@ export default function LabsEditor({
                 {/* Spacer */}
                 <div className="flex-1" />
 
+                {/* AI Edit button — always visible, enabled when text selected */}
+                {mode === "edit" && (
+                    <button
+                        onClick={() => {
+                            if (selection) setShowToolbar(true);
+                        }}
+                        disabled={!selection || isProcessing || isEditing}
+                        className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all mr-1",
+                            selection && !isProcessing && !isEditing
+                                ? "bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 shadow-sm shadow-primary/10"
+                                : "bg-foreground/5 text-muted-foreground/40 border border-transparent cursor-not-allowed"
+                        )}
+                        title={selection ? "Edit selected text with AI" : "Select text to enable AI editing"}
+                    >
+                        <Sparkles size={13} />
+                        <span className="hidden sm:inline">AI Edit</span>
+                    </button>
+                )}
+
                 {/* Undo/Redo */}
                 <HistoryControls
                     canUndo={canUndo}
@@ -892,9 +914,9 @@ You can use Markdown formatting:
                 )}
             </div>
 
-            {/* Floating Selection Toolbar */}
+            {/* Selection Toolbar — opens via AI Edit button */}
             <AnimatePresence>
-                {selection && toolbarPosition && mode === "edit" && (
+                {showToolbar && selection && mode === "edit" && (
                     <SelectionToolbar
                         position={toolbarPosition}
                         selectedText={selection.text}
