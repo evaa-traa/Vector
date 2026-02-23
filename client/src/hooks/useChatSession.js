@@ -115,6 +115,8 @@ export function useChatSession() {
   const abortRef = useRef(null);
   const timeoutRef = useRef(null);
   const initialLoadDone = useRef(false);
+  const tokenBufferRef = useRef("");
+  const flushScheduledRef = useRef(false);
 
   const activeSession = sessions.find((item) => item.id === activeSessionId);
 
@@ -413,14 +415,26 @@ export function useChatSession() {
               controller.abort();
             }, REQUEST_TIMEOUT_MS);
           }
-          updateSession(activeSession.id, (session) => ({
-            ...session,
-            messages: session.messages.map((msg) =>
-              msg.id === assistantMessage.id
-                ? { ...msg, content: msg.content + (parsed.text || "") }
-                : msg
-            )
-          }));
+          // Buffer tokens and flush via rAF for smooth streaming
+          tokenBufferRef.current += (parsed.text || "");
+          if (!flushScheduledRef.current) {
+            flushScheduledRef.current = true;
+            requestAnimationFrame(() => {
+              const buffered = tokenBufferRef.current;
+              tokenBufferRef.current = "";
+              flushScheduledRef.current = false;
+              if (buffered) {
+                updateSession(activeSession.id, (session) => ({
+                  ...session,
+                  messages: session.messages.map((msg) =>
+                    msg.id === assistantMessage.id
+                      ? { ...msg, content: msg.content + buffered }
+                      : msg
+                  )
+                }));
+              }
+            });
+          }
         }
 
         if (eventName === "activity") {
@@ -472,27 +486,30 @@ export function useChatSession() {
         }
       });
 
-      // Force React to update on each chunk by using a render trigger
-      let renderCounter = 0;
-
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
         parser.feed(chunk);
-
-        // Batch updates more efficiently - reduce render frequency for better performance
-        renderCounter++;
-        if (renderCounter % 6 === 0) {
-          // Use requestAnimationFrame for smoother streaming updates
-          requestAnimationFrame(() => {
-            setSessions(prev => [...prev]);
-          });
-        }
       }
 
-      // Final update to ensure everything is saved
+      // Final flush of any remaining buffered tokens
+      if (tokenBufferRef.current) {
+        const remaining = tokenBufferRef.current;
+        tokenBufferRef.current = "";
+        flushScheduledRef.current = false;
+        updateSession(activeSession.id, (session) => ({
+          ...session,
+          messages: session.messages.map((msg) =>
+            msg.id === assistantMessage.id
+              ? { ...msg, content: msg.content + remaining }
+              : msg
+          )
+        }));
+      }
+
+      // Final save
       setSessions(prev => [...prev]);
     } catch (error) {
       // Clear timeout on error

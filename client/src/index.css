@@ -103,6 +103,66 @@
   }
 }
 
+/* ── Professional Micro-Interactions ── */
+
+/* Subtle button press-down on click */
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  transition: transform 100ms ease, opacity 100ms ease,
+    background-color 150ms ease, color 150ms ease,
+    border-color 150ms ease, box-shadow 150ms ease;
+}
+
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Smooth streaming caret (replaces harsh animate-pulse) */
+@keyframes streamCaret {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.stream-caret {
+  animation: streamCaret 0.8s ease-in-out infinite;
+}
+
+/* Performance: content-visibility for off-screen messages */
+.message-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+
+/* GPU-accelerated sidebar transition */
+aside {
+  will-change: transform;
+}
+
+/* Stagger animation utility */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-item {
+  animation: slideUp 0.3s ease-out both;
+}
+
 /* Refined Input Container - Floating, Calm, Precise */
 .refined-input-container {
   position: relative;

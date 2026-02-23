@@ -14,7 +14,8 @@ import {
     Menu,
     ChevronLeft,
     Save,
-    Upload
+    Upload,
+    FileDown
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -507,13 +508,13 @@ export default function LabsArea({
                                                         onClick={handleExportWord}
                                                         className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-foreground/10 transition-colors"
                                                     >
-                                                        📄 Word (.docx)
+                                                        <FileText size={14} className="shrink-0" /> Word (.docx)
                                                     </button>
                                                     <button
                                                         onClick={handleExportPdf}
                                                         className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-foreground/10 transition-colors"
                                                     >
-                                                        📕 PDF (.pdf)
+                                                        <FileDown size={14} className="shrink-0" /> PDF (.pdf)
                                                     </button>
                                                 </motion.div>
                                             )}

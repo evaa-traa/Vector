@@ -256,16 +256,17 @@ export default function ChatSidebar({
                       <span className="text-xs">No history yet</span>
                     </div>
                   ) : (
-                    historyList.map((session) => (
+                    historyList.map((session, i) => (
                       <button
                         key={session.id}
                         onClick={() => onSelectSession(session.id)}
                         className={cn(
-                          "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors group flex items-center gap-3 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                          "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors group flex items-center gap-3 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 stagger-item",
                           activeSessionId === session.id
                             ? "bg-[#202338] text-foreground"
                             : "text-muted-foreground hover:bg-[#1A1D29] hover:text-foreground"
                         )}
+                        style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
                       >
                         {activeSessionId === session.id && (
                           <span className="absolute left-0 top-2 bottom-2 w-[2px] bg-[#22D3EE] rounded-full" />

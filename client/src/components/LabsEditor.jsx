@@ -900,7 +900,7 @@ You can use Markdown formatting:
 > Blockquotes
 `inline code`
 
-💡 Tip: Use the toolbar above or select text for AI editing!"
+Tip: Use the toolbar above or select text for AI editing!"
                         disabled={isProcessing || isEditing}
                         className={cn(
                             "w-full min-h-full p-6 bg-transparent outline-none resize-none text-white font-mono text-sm leading-relaxed",

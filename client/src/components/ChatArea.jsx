@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -20,7 +20,15 @@ import {
   Mic,
   X,
   Check,
-  ChevronDown
+  ChevronDown,
+  Search,
+  BookOpen,
+  Wrench,
+  Brain,
+  PenLine,
+  ClipboardList,
+  Zap,
+  CheckCircle2
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -100,11 +108,168 @@ const markdownSchema = {
 function MarkdownContent({ content }) {
   const [copiedCode, setCopiedCode] = React.useState(null);
 
-  const handleCopyCode = (code, index) => {
+  const handleCopyCode = useCallback((code, index) => {
     navigator.clipboard?.writeText(code);
     setCopiedCode(index);
     setTimeout(() => setCopiedCode(null), 2000);
-  };
+  }, []);
+
+  const components = useMemo(() => ({
+    a: (props) => (
+      <a
+        {...props}
+        target="_blank"
+        rel="noopener noreferrer"
+        href={sanitizeLinkUrl(props.href)}
+        className="text-white underline decoration-border hover:text-white/90 hover:decoration-muted-foreground/40 transition-colors"
+      />
+    ),
+    pre: ({ children, ...props }) => {
+      const codeContent = React.Children.toArray(children)
+        .map(child => {
+          if (React.isValidElement(child) && child.props?.children) {
+            return typeof child.props.children === 'string'
+              ? child.props.children
+              : '';
+          }
+          return '';
+        })
+        .join('');
+      const index = Math.random().toString(36).substr(2, 9);
+
+      return (
+        <div className="relative group my-4 overflow-hidden">
+          <pre
+            {...props}
+            className="bg-popover border border-border rounded-lg p-4 overflow-x-auto text-sm max-w-full"
+          >
+            {children}
+          </pre>
+          <button
+            onClick={() => handleCopyCode(codeContent, index)}
+            className="absolute top-2 right-2 p-1.5 rounded-md bg-foreground/10 hover:bg-foreground/20 text-muted-foreground hover:text-white opacity-0 group-hover:opacity-100 transition-all"
+            aria-label="Copy code"
+          >
+            {copiedCode === index ? (
+              <Check size={14} className="text-green-400" />
+            ) : (
+              <Copy size={14} />
+            )}
+          </button>
+        </div>
+      );
+    },
+    code: ({ inline, className, children, ...props }) => {
+      if (inline) {
+        return (
+          <code
+            className="px-1.5 py-0.5 rounded-md bg-foreground/10 text-white text-sm font-mono"
+            {...props}
+          >
+            {children}
+          </code>
+        );
+      }
+      return (
+        <code className={cn("text-white/90 font-mono text-sm", className)} {...props}>
+          {children}
+        </code>
+      );
+    },
+    table: ({ children, ...props }) => (
+      <div className="my-4 overflow-x-auto rounded-lg border border-border max-w-full">
+        <table className="min-w-full divide-y divide-border" {...props}>
+          {children}
+        </table>
+      </div>
+    ),
+    thead: ({ children, ...props }) => (
+      <thead className="bg-foreground/5" {...props}>
+        {children}
+      </thead>
+    ),
+    th: ({ children, ...props }) => (
+      <th
+        className="px-3 py-2 md:px-4 md:py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-border last:border-r-0"
+        {...props}
+      >
+        {children}
+      </th>
+    ),
+    td: ({ children, ...props }) => (
+      <td
+        className="px-3 py-2 md:px-4 md:py-3 text-sm text-white/80 border-r border-border last:border-r-0"
+        {...props}
+      >
+        {children}
+      </td>
+    ),
+    tr: ({ children, ...props }) => (
+      <tr
+        className="border-b border-border last:border-b-0 hover:bg-foreground/5 transition-colors"
+        {...props}
+      >
+        {children}
+      </tr>
+    ),
+    ul: ({ children, ...props }) => (
+      <ul className="my-3 ml-1 space-y-2 list-none" {...props}>
+        {children}
+      </ul>
+    ),
+    ol: ({ children, ...props }) => (
+      <ol className="my-3 ml-1 space-y-2 list-none counter-reset-item" {...props}>
+        {children}
+      </ol>
+    ),
+    li: ({ children, ordered, ...props }) => (
+      <li className="relative pl-6 text-white/90" {...props}>
+        <span className="absolute left-0 text-muted-foreground">•</span>
+        {children}
+      </li>
+    ),
+    h1: ({ children, ...props }) => (
+      <h1 className="text-xl md:text-2xl font-bold text-white mt-6 mb-4 pb-2 border-b border-border" {...props}>
+        {children}
+      </h1>
+    ),
+    h2: ({ children, ...props }) => (
+      <h2 className="text-lg md:text-xl font-semibold text-white mt-5 mb-3" {...props}>
+        {children}
+      </h2>
+    ),
+    h3: ({ children, ...props }) => (
+      <h3 className="text-base md:text-lg font-semibold text-white mt-4 mb-2" {...props}>
+        {children}
+      </h3>
+    ),
+    p: ({ children, ...props }) => (
+      <p className="my-[0.7em] text-white/90 leading-[1.65]" {...props}>
+        {children}
+      </p>
+    ),
+    strong: ({ children, ...props }) => (
+      <strong className="font-bold text-white" {...props}>
+        {children}
+      </strong>
+    ),
+    em: ({ children, ...props }) => (
+      <em className="italic text-white/90" {...props}>
+        {children}
+      </em>
+    ),
+    blockquote: ({ children, ...props }) => (
+      <blockquote
+        className="my-4 pl-4 border-l-4 border-border bg-foreground/5 py-2 pr-4 rounded-r-lg italic text-white/80"
+        {...props}
+      >
+        {children}
+      </blockquote>
+    ),
+    hr: (props) => (
+      <hr className="my-6 border-t border-border" {...props} />
+    )
+  }), [copiedCode, handleCopyCode]);
 
   return (
     <div className="markdown-content prose prose-invert max-w-none">
@@ -113,162 +278,7 @@ function MarkdownContent({ content }) {
         rehypePlugins={[rehypeKatex, [rehypeSanitize, markdownSchema]]}
         transformLinkUri={sanitizeLinkUrl}
         transformImageUri={sanitizeLinkUrl}
-        components={{
-          a: (props) => (
-            <a
-              {...props}
-              target="_blank"
-              rel="noopener noreferrer"
-              href={sanitizeLinkUrl(props.href)}
-              className="text-white underline decoration-border hover:text-white/90 hover:decoration-muted-foreground/40 transition-colors"
-            />
-          ),
-          pre: ({ children, ...props }) => {
-            const codeContent = React.Children.toArray(children)
-              .map(child => {
-                if (React.isValidElement(child) && child.props?.children) {
-                  return typeof child.props.children === 'string'
-                    ? child.props.children
-                    : '';
-                }
-                return '';
-              })
-              .join('');
-            const index = Math.random().toString(36).substr(2, 9);
-
-            return (
-              <div className="relative group my-4 overflow-hidden">
-                <pre
-                  {...props}
-                  className="bg-popover border border-border rounded-lg p-4 overflow-x-auto text-sm max-w-full"
-                >
-                  {children}
-                </pre>
-                <button
-                  onClick={() => handleCopyCode(codeContent, index)}
-                  className="absolute top-2 right-2 p-1.5 rounded-md bg-foreground/10 hover:bg-foreground/20 text-muted-foreground hover:text-white opacity-0 group-hover:opacity-100 transition-all"
-                  aria-label="Copy code"
-                >
-                  {copiedCode === index ? (
-                    <Check size={14} className="text-green-400" />
-                  ) : (
-                    <Copy size={14} />
-                  )}
-                </button>
-              </div>
-            );
-          },
-          code: ({ inline, className, children, ...props }) => {
-            if (inline) {
-              return (
-                <code
-                  className="px-1.5 py-0.5 rounded-md bg-foreground/10 text-white text-sm font-mono"
-                  {...props}
-                >
-                  {children}
-                </code>
-              );
-            }
-            return (
-              <code className={cn("text-white/90 font-mono text-sm", className)} {...props}>
-                {children}
-              </code>
-            );
-          },
-          table: ({ children, ...props }) => (
-            <div className="my-4 overflow-x-auto rounded-lg border border-border max-w-full">
-              <table className="min-w-full divide-y divide-border" {...props}>
-                {children}
-              </table>
-            </div>
-          ),
-          thead: ({ children, ...props }) => (
-            <thead className="bg-foreground/5" {...props}>
-              {children}
-            </thead>
-          ),
-          th: ({ children, ...props }) => (
-            <th
-              className="px-3 py-2 md:px-4 md:py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-border last:border-r-0"
-              {...props}
-            >
-              {children}
-            </th>
-          ),
-          td: ({ children, ...props }) => (
-            <td
-              className="px-3 py-2 md:px-4 md:py-3 text-sm text-white/80 border-r border-border last:border-r-0"
-              {...props}
-            >
-              {children}
-            </td>
-          ),
-          tr: ({ children, ...props }) => (
-            <tr
-              className="border-b border-border last:border-b-0 hover:bg-foreground/5 transition-colors"
-              {...props}
-            >
-              {children}
-            </tr>
-          ),
-          ul: ({ children, ...props }) => (
-            <ul className="my-3 ml-1 space-y-2 list-none" {...props}>
-              {children}
-            </ul>
-          ),
-          ol: ({ children, ...props }) => (
-            <ol className="my-3 ml-1 space-y-2 list-none counter-reset-item" {...props}>
-              {children}
-            </ol>
-          ),
-          li: ({ children, ordered, ...props }) => (
-            <li className="relative pl-6 text-white/90" {...props}>
-              <span className="absolute left-0 text-muted-foreground">•</span>
-              {children}
-            </li>
-          ),
-          h1: ({ children, ...props }) => (
-            <h1 className="text-xl md:text-2xl font-bold text-white mt-6 mb-4 pb-2 border-b border-border" {...props}>
-              {children}
-            </h1>
-          ),
-          h2: ({ children, ...props }) => (
-            <h2 className="text-lg md:text-xl font-semibold text-white mt-5 mb-3" {...props}>
-              {children}
-            </h2>
-          ),
-          h3: ({ children, ...props }) => (
-            <h3 className="text-base md:text-lg font-semibold text-white mt-4 mb-2" {...props}>
-              {children}
-            </h3>
-          ),
-          p: ({ children, ...props }) => (
-            <p className="my-[0.7em] text-white/90 leading-[1.65]" {...props}>
-              {children}
-            </p>
-          ),
-          strong: ({ children, ...props }) => (
-            <strong className="font-bold text-white" {...props}>
-              {children}
-            </strong>
-          ),
-          em: ({ children, ...props }) => (
-            <em className="italic text-white/90" {...props}>
-              {children}
-            </em>
-          ),
-          blockquote: ({ children, ...props }) => (
-            <blockquote
-              className="my-4 pl-4 border-l-4 border-border bg-foreground/5 py-2 pr-4 rounded-r-lg italic text-white/80"
-              {...props}
-            >
-              {children}
-            </blockquote>
-          ),
-          hr: (props) => (
-            <hr className="my-6 border-t border-border" {...props} />
-          )
-        }}
+        components={components}
       >
         {content || ""}
       </ReactMarkdown>
@@ -346,7 +356,7 @@ const MessageRow = React.memo(({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "flex w-full group",
+        "flex w-full group message-row",
         msg.role === "user" ? "justify-end" : "justify-start"
       )}
     >
@@ -381,7 +391,7 @@ const MessageRow = React.memo(({
             </div>
           )}
           {isStreaming && isLastAssistant && msg.role === "assistant" && (
-            <span className="inline-block w-1.5 h-5 bg-white/70 animate-pulse ml-0.5 align-middle rounded-sm" />
+            <span className="inline-block w-1.5 h-5 bg-white/70 stream-caret ml-0.5 align-middle rounded-sm" />
           )}
         </div>
 
@@ -577,14 +587,15 @@ export default function ChatArea({
                   "How does AI work?",
                   "Write a Python script",
                   "Latest tech news"
-                ].map((suggestion) => (
+                ].map((suggestion, i) => (
                   <button
                     key={suggestion}
                     onClick={() => {
                       onMessageChange(suggestion);
                       setTimeout(() => onSend(), 100);
                     }}
-                    className="px-3 py-2 md:px-4 rounded-full border border-border bg-foreground/5 text-xs md:text-sm text-muted-foreground hover:bg-foreground/8 hover:text-white transition-colors font-medium focus-visible:outline-none"
+                    className="px-3 py-2 md:px-4 rounded-full border border-border bg-foreground/5 text-xs md:text-sm text-muted-foreground hover:bg-foreground/8 hover:text-white transition-colors font-medium focus-visible:outline-none stagger-item"
+                    style={{ animationDelay: `${i * 80}ms` }}
                   >
                     {suggestion}
                   </button>
@@ -862,8 +873,8 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
               </div>
             )}
             {!interimTranscript && value && (
-              <div className="text-xs text-green-400/70 mt-1 truncate max-w-full">
-                ✓ "{value.slice(-50)}{value.length > 50 ? '...' : ''}"
+              <div className="text-xs text-green-400/70 mt-1 truncate max-w-full flex items-center gap-1">
+                <Check size={10} className="shrink-0" /> "{value.slice(-50)}{value.length > 50 ? '...' : ''}"
               </div>
             )}
             {!interimTranscript && !value && (
@@ -1031,7 +1042,7 @@ function ActivityPanel({ steps, phase, toolName, isStreaming }) {
               <span className="thinking-dot w-1 h-1 rounded-full bg-muted-foreground/80" style={{ animationDelay: "280ms" }} />
             </span>
           ) : (
-            <span className="text-[12px]">✅</span>
+            <CheckCircle2 size={12} className="text-green-400 shrink-0" />
           )}
           <span className="truncate">{isStreaming && phase ? summaryText : summaryText}</span>
         </span>
@@ -1061,7 +1072,7 @@ function ActivityPanel({ steps, phase, toolName, isStreaming }) {
               {isStreaming && phase && (
                 <div className="activity-step-row">
                   <span className="activity-step-icon">
-                    {phase === "searching" ? "🔍" : phase === "reading" ? "📖" : phase === "tool" ? "🔧" : "💭"}
+                    {phase === "searching" ? <Search size={12} /> : phase === "reading" ? <BookOpen size={12} /> : phase === "tool" ? <Wrench size={12} /> : <Brain size={12} />}
                   </span>
                   <span className="text-muted-foreground/70 italic">
                     {phase === "searching" ? "Searching…" : phase === "reading" ? `Reading…` : phase === "tool" ? `Using ${toolName || "tool"}…` : "Thinking…"}
@@ -1080,7 +1091,7 @@ function ActivityStepRow({ step }) {
   if (step.type === "search") {
     return (
       <div className="activity-step-row">
-        <span className="activity-step-icon">🔍</span>
+        <span className="activity-step-icon"><Search size={12} /></span>
         <span>Searched: <span className="text-foreground/80 font-medium">"{step.query}"</span></span>
       </div>
     );
@@ -1090,7 +1101,7 @@ function ActivityStepRow({ step }) {
     try { displayUrl = new URL(step.url).hostname; } catch { }
     return (
       <div className="activity-step-row">
-        <span className="activity-step-icon">🌐</span>
+        <span className="activity-step-icon"><Globe size={12} /></span>
         <span>Reading: <a href={step.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{displayUrl}</a></span>
       </div>
     );
@@ -1126,7 +1137,7 @@ function ActivityStepRow({ step }) {
   if (step.type === "tool") {
     return (
       <div className="activity-step-row">
-        <span className="activity-step-icon">🔧</span>
+        <span className="activity-step-icon"><Wrench size={12} /></span>
         <span>Used tool: <span className="font-medium">{step.tool}</span></span>
       </div>
     );
@@ -1136,14 +1147,14 @@ function ActivityStepRow({ step }) {
 
 function StreamingStatus({ phase, toolName }) {
   const config = {
-    thinking: { icon: "💭", label: "Thinking" },
-    searching: { icon: "🔍", label: "Searching" },
-    reasoning: { icon: "🧠", label: "Analyzing" },
-    tool: { icon: "🔧", label: toolName ? `Using ${toolName}` : "Using tool" },
-    reading: { icon: "📖", label: "Reading sources" },
-    writing: { icon: "✍️", label: "Writing" },
-    planning: { icon: "📋", label: "Planning" },
-    executing: { icon: "⚡", label: "Executing" },
+    thinking: { icon: <Brain size={11} />, label: "Thinking" },
+    searching: { icon: <Search size={11} />, label: "Searching" },
+    reasoning: { icon: <Brain size={11} />, label: "Analyzing" },
+    tool: { icon: <Wrench size={11} />, label: toolName ? `Using ${toolName}` : "Using tool" },
+    reading: { icon: <BookOpen size={11} />, label: "Reading sources" },
+    writing: { icon: <PenLine size={11} />, label: "Writing" },
+    planning: { icon: <ClipboardList size={11} />, label: "Planning" },
+    executing: { icon: <Zap size={11} />, label: "Executing" },
   };
   const { icon, label } = config[phase] || config.thinking;
 
@@ -1163,7 +1174,7 @@ function StreamingStatus({ phase, toolName }) {
           transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="inline-flex items-center gap-1.5"
         >
-          <span className="text-[11px]">{icon}</span>
+          <span className="flex items-center">{icon}</span>
           {label}…
         </motion.span>
       </AnimatePresence>
