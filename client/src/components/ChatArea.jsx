@@ -665,6 +665,8 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
   const [audioStream, setAudioStream] = React.useState(null);
   const [interimTranscript, setInterimTranscript] = React.useState("");
   const recognitionRef = React.useRef(null);
+  const isRecordingRef = React.useRef(false); // Ref to avoid stale closure in onend
+  const finalTranscriptRef = React.useRef(""); // Ref to track accumulated transcript
   const maxTextareaHeight = isHero ? 100 : 120;
   const minTextareaHeight = 44;
 
@@ -725,6 +727,7 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
   const handleMicClick = async () => {
     if (isRecording) {
       // Stop recording
+      isRecordingRef.current = false;
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
@@ -755,15 +758,16 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
         recognition.interimResults = true;
         recognition.lang = 'en-US';
 
-        let finalTranscript = value;
+        // Use ref to track accumulated text (avoids stale closure issues)
+        finalTranscriptRef.current = value;
 
         recognition.onresult = (event) => {
           let interim = '';
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-              finalTranscript = (finalTranscript ? finalTranscript + ' ' : '') + transcript;
-              onChange(finalTranscript);
+              finalTranscriptRef.current = (finalTranscriptRef.current ? finalTranscriptRef.current + ' ' : '') + transcript;
+              onChange(finalTranscriptRef.current);
             } else {
               interim += transcript;
             }
@@ -773,6 +777,7 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
 
         recognition.onerror = (event) => {
           console.error('Speech recognition error:', event.error);
+          isRecordingRef.current = false;
           if (audioStream) {
             audioStream.getTracks().forEach(track => track.stop());
             setAudioStream(null);
@@ -782,17 +787,18 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
         };
 
         recognition.onend = () => {
-          // Restart if still in recording mode
-          if (recognitionRef.current && isRecording) {
+          // Restart if still in recording mode — use ref to get current value
+          if (recognitionRef.current && isRecordingRef.current) {
             try {
               recognitionRef.current.start();
             } catch (e) {
-              // Ignore
+              // Ignore — may fail if already started
             }
           }
         };
 
         recognition.start();
+        isRecordingRef.current = true;
         setIsRecording(true);
       } catch (err) {
         console.error('Microphone access denied:', err);
@@ -887,6 +893,7 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
               <button
                 onClick={() => {
                   // Cancel: stop recording and clear text
+                  isRecordingRef.current = false;
                   if (recognitionRef.current) {
                     recognitionRef.current.stop();
                     recognitionRef.current = null;
@@ -897,6 +904,7 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
                   }
                   setIsRecording(false);
                   setInterimTranscript("");
+                  finalTranscriptRef.current = "";
                   onChange(""); // Clear transcribed text
                 }}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors"
@@ -908,6 +916,13 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
               <button
                 onClick={() => {
                   // Done: stop recording but keep the text
+                  isRecordingRef.current = false;
+                  // Save any pending interim transcript before stopping
+                  if (interimTranscript) {
+                    const updated = (finalTranscriptRef.current ? finalTranscriptRef.current + ' ' : '') + interimTranscript;
+                    finalTranscriptRef.current = updated;
+                    onChange(updated);
+                  }
                   if (recognitionRef.current) {
                     recognitionRef.current.stop();
                     recognitionRef.current = null;
