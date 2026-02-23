@@ -102,14 +102,11 @@ async function filesToFlowise(files) {
 
 export function useChatSession() {
   const [models, setModels] = useState([]);
-  const [selectedModelId, setSelectedModelId] = useState("");
   const [modelsIssues, setModelsIssues] = useState([]);
   const [isModelsLoading, setIsModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState("");
   const [modelsReloadToken, setModelsReloadToken] = useState(0);
   const [mode, setMode] = useState("chat");
-  const [sessions, setSessions] = useState([]);
-  const [activeSessionId, setActiveSessionId] = useState("");
   const [message, setMessage] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const abortRef = useRef(null);
@@ -117,6 +114,28 @@ export function useChatSession() {
   const initialLoadDone = useRef(false);
   const tokenBufferRef = useRef("");
   const flushScheduledRef = useRef(false);
+
+  // Load sessions synchronously from localStorage on first render
+  // to avoid race conditions with model loading
+  const initialSessions = useRef(null);
+  if (initialSessions.current === null) {
+    initialSessions.current = loadAllSessions();
+    initialLoadDone.current = true;
+  }
+
+  const [sessions, setSessions] = useState(() => {
+    return initialSessions.current.length > 0 ? initialSessions.current : [];
+  });
+
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    return initialSessions.current.length > 0 ? initialSessions.current[0].id : "";
+  });
+
+  // Initialize selectedModelId from the stored session's modelId (if any)
+  const [selectedModelId, setSelectedModelId] = useState(() => {
+    const first = initialSessions.current[0];
+    return first?.modelId || "";
+  });
 
   const activeSession = sessions.find((item) => item.id === activeSessionId);
 
@@ -170,6 +189,7 @@ export function useChatSession() {
         setModelsIssues(issues);
 
         setSelectedModelId((prev) => {
+          // If there's already a valid model selected (e.g. restored from session), keep it
           if (prev && normalized.some((m) => m.id === prev)) return prev;
           return normalized[0]?.id || "";
         });
@@ -192,22 +212,6 @@ export function useChatSession() {
       controller.abort();
     };
   }, [modelsReloadToken]);
-
-  // Load ALL sessions once on mount (global history)
-  useEffect(() => {
-    if (initialLoadDone.current) return;
-    initialLoadDone.current = true;
-
-    const stored = loadAllSessions();
-    setSessions(stored);
-    if (stored.length > 0) {
-      setActiveSessionId(stored[0].id);
-      // If the stored session has a modelId, switch to it
-      if (stored[0].modelId) {
-        setSelectedModelId(stored[0].modelId);
-      }
-    }
-  }, []);
 
   // When no sessions exist and we have a model, create a fresh session
   useEffect(() => {
