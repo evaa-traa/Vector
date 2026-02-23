@@ -228,6 +228,20 @@ export function useChatSession() {
     }
   }, [activeSession?.mode]);
 
+  // Sync selectedModelId onto the active session while it's still empty
+  // This ensures that if the user changes the model dropdown before typing,
+  // the session remembers this correct new model when it gets locked.
+  useEffect(() => {
+    if (activeSession && selectedModelId && !isSessionLocked) {
+      if (activeSession.modelId !== selectedModelId) {
+        updateSession(activeSession.id, (session) => ({
+          ...session,
+          modelId: selectedModelId
+        }));
+      }
+    }
+  }, [activeSession, selectedModelId, isSessionLocked]);
+
   // Save sessions globally whenever they change
   useEffect(() => {
     if (sessions.length > 0) {
