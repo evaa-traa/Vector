@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -28,16 +28,12 @@ import {
   PenLine,
   ClipboardList,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  Square
 } from "lucide-react";
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../utils/cn.js";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import AudioVisualizer from "./AudioVisualizer.jsx";
-
-function cn(...inputs) {
-  return twMerge(clsx(inputs));
-}
 
 const allowedLinkProtocols = new Set(["http:", "https:", "mailto:", "tel:"]);
 
@@ -135,7 +131,8 @@ function MarkdownContent({ content }) {
           return '';
         })
         .join('');
-      const index = Math.random().toString(36).substr(2, 9);
+      // Stable ID from content to avoid re-render on every paint.
+      const index = codeContent.split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0).toString(36);
 
       return (
         <div className="relative group my-4 overflow-hidden">
@@ -224,7 +221,7 @@ function MarkdownContent({ content }) {
     ),
     li: ({ children, ordered, ...props }) => (
       <li className="relative pl-6 text-white/90" {...props}>
-        <span className="absolute left-0 text-muted-foreground">•</span>
+        <span className="absolute left-0 text-muted-foreground">*</span>
         {children}
       </li>
     ),
@@ -304,11 +301,9 @@ const MessageRow = React.memo(({
   isLastAssistant,
   isStreaming,
   showSearching,
-  activityLabels,
   onMessageChange,
   onSend,
-  activeSession,
-  onCopy
+  retryUserMessage
 }) => {
   const sources = msg.content ? extractSources(msg.content) : [];
   const hasActivities = Array.isArray(msg.activities) && msg.activities.length > 0;
@@ -364,16 +359,17 @@ const MessageRow = React.memo(({
         "flex flex-col gap-2.5 min-w-0",
         msg.role === "user"
           ? "items-end max-w-[85%] md:max-w-[75%]"
-          : "items-start max-w-full"
+          : "items-start w-full max-w-full"
       )}>
         <div className="font-semibold text-[13px] text-white/90 mb-0.5 px-0.5">
           {msg.role === "user" ? "You" : "Vector"}
         </div>
 
-        {/* Activity panel — shows while streaming OR persists after streaming for completed steps */}
-        {msg.role === "assistant" && (msg.agentSteps?.length > 0 || phase) && (
+        {/* Activity panel: shows while streaming, persists for completed steps */}
+        {msg.role === "assistant" && ((msg.agentSteps?.length > 0) || (msg.activities?.length > 0) || phase) && (
           <ActivityPanel
             steps={msg.agentSteps || []}
+            activities={msg.activities || []}
             phase={phase}
             toolName={activeToolName}
             isStreaming={isStreaming && isLastAssistant}
@@ -383,7 +379,11 @@ const MessageRow = React.memo(({
         <div className={cn("text-[15px] leading-[1.6] w-full", msg.role === "user" && "text-right")}>
           {msg.role === "assistant" ? (
             <div className="text-white/95">
-              <MarkdownContent content={msg.content} />
+              {isStreaming && isLastAssistant ? (
+                <div className="streaming-plain-text">{msg.content}</div>
+              ) : (
+                <MarkdownContent content={msg.content} />
+              )}
             </div>
           ) : (
             <div className="bg-[#2F2F2F] rounded-2xl px-4 py-3 text-white inline-block max-w-full break-words">
@@ -425,12 +425,8 @@ const MessageRow = React.memo(({
               </button>
               <button
                 onClick={() => {
-                  const lastUserMsg = [...(activeSession?.messages || [])]
-                    .slice(0, index)
-                    .reverse()
-                    .find(m => m.role === "user");
-                  if (lastUserMsg) {
-                    onMessageChange(lastUserMsg.content);
+                  if (retryUserMessage) {
+                    onMessageChange(retryUserMessage);
                     setTimeout(() => onSend(), 50);
                   }
                 }}
@@ -446,7 +442,14 @@ const MessageRow = React.memo(({
       </div>
     </motion.div>
   );
-});
+}, (prev, next) =>
+  prev.msg === next.msg &&
+  prev.index === next.index &&
+  prev.isLastAssistant === next.isLastAssistant &&
+  prev.isStreaming === next.isStreaming &&
+  prev.showSearching === next.showSearching &&
+  prev.retryUserMessage === next.retryUserMessage
+);
 
 export default function ChatArea({
   activeSession,
@@ -454,6 +457,7 @@ export default function ChatArea({
   message,
   onMessageChange,
   onSend,
+  onStop,
   onSelectFollowUp,
   activityLabels,
   toggleSidebar,
@@ -520,12 +524,11 @@ export default function ChatArea({
     // Don't auto-scroll if user has scrolled up
     if (userScrolledRef.current) return;
 
-    // Instant scroll to bottom during streaming to prevent jarring motion
-    // Use smooth scroll only when not streaming
+    // Auto-scroll without smoothing during streaming; smooth only when idle.
     const scrollToBottom = () => {
       el.scrollTo({
         top: el.scrollHeight,
-        behavior: isStreaming ? 'instant' : 'smooth'
+        behavior: isStreaming ? "auto" : "smooth"
       });
     };
 
@@ -543,6 +546,19 @@ export default function ChatArea({
   }, [isStreaming]);
 
   const isEmpty = !activeSession?.messages || activeSession.messages.length === 0;
+  const retryMessageByAssistantId = useMemo(() => {
+    const map = new Map();
+    const messages = activeSession?.messages || [];
+    let lastUserMessage = "";
+    for (const msg of messages) {
+      if (msg.role === "user") {
+        lastUserMessage = msg.content || "";
+      } else if (msg.role === "assistant") {
+        map.set(msg.id, lastUserMessage);
+      }
+    }
+    return map;
+  }, [activeSession?.messages]);
 
   return (
     <div className="flex-1 flex flex-col h-full relative bg-card">
@@ -563,26 +579,41 @@ export default function ChatArea({
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-card" ref={scrollRef}>
         {isEmpty ? (
-          /* Empty State / Hero Section */
+          /* Minimal hero (ChatGPT-style) */
           <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
-            <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-foreground/5 border border-border flex items-center justify-center mb-6">
-              <Sparkles className="text-muted-foreground w-7 h-7 md:w-8 md:h-8" />
-            </div>
-            <h1 className="text-2xl md:text-4xl font-display font-medium text-center mb-8 md:mb-12 text-white">
-              Where knowledge begins
-            </h1>
 
-            <div className="w-full max-w-xl px-4">
+            {/* Single clean fade-in without continuous animations */}
+            <motion.h1
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="text-2xl md:text-[2.15rem] font-semibold text-center mb-8 md:mb-10 text-foreground tracking-tight"
+            >
+              What are you working on?
+            </motion.h1>
+
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.38, delay: 0.08, ease: "easeOut" }}
+              className="w-full max-w-2xl px-2"
+            >
               <SearchInput
                 value={message}
                 onChange={onMessageChange}
                 onSend={onSend}
+                onStop={onStop}
                 disabled={isStreaming}
                 isHero={true}
                 features={features}
               />
 
-              <div className="mt-6 md:mt-8 flex flex-wrap justify-center gap-2">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.22, duration: 0.3 }}
+                className="mt-5 flex flex-wrap justify-center gap-2"
+              >
                 {[
                   "How does AI work?",
                   "Write a Python script",
@@ -594,14 +625,13 @@ export default function ChatArea({
                       onMessageChange(suggestion);
                       setTimeout(() => onSend(), 100);
                     }}
-                    className="px-3 py-2 md:px-4 rounded-full border border-border bg-foreground/5 text-xs md:text-sm text-muted-foreground hover:bg-foreground/8 hover:text-white transition-colors font-medium focus-visible:outline-none stagger-item"
-                    style={{ animationDelay: `${i * 80}ms` }}
+                    className="px-3.5 py-1.5 rounded-full border border-border/60 bg-transparent text-xs text-muted-foreground hover:bg-foreground/5 hover:text-foreground hover:border-border transition-colors font-medium focus-visible:outline-none"
                   >
                     {suggestion}
                   </button>
                 ))}
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </div>
         ) : (
           /* Chat Messages */
@@ -619,8 +649,7 @@ export default function ChatArea({
                     isLastAssistant={isLastAssistant}
                     isStreaming={isStreaming}
                     showSearching={showSearching}
-                    activityLabels={activityLabels}
-                    activeSession={activeSession}
+                    retryUserMessage={retryMessageByAssistantId.get(msg.id) || ""}
                     onMessageChange={onMessageChange}
                     onSend={onSend}
                   />
@@ -646,6 +675,7 @@ export default function ChatArea({
               value={message}
               onChange={onMessageChange}
               onSend={onSend}
+              onStop={onStop}
               disabled={isStreaming}
               features={features}
             />
@@ -656,7 +686,7 @@ export default function ChatArea({
   );
 }
 
-function SearchInput({ value, onChange, onSend, disabled, isHero = false, features = {} }) {
+function SearchInput({ value, onChange, onSend, onStop, disabled, isHero = false, features = {} }) {
   const fileInputRef = React.useRef(null);
   const textareaRef = React.useRef(null);
   const textareaScrollTimeoutRef = React.useRef(null);
@@ -787,12 +817,12 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
         };
 
         recognition.onend = () => {
-          // Restart if still in recording mode — use ref to get current value
+          // Restart if still in recording mode; use ref to get current value.
           if (recognitionRef.current && isRecordingRef.current) {
             try {
               recognitionRef.current.start();
             } catch (e) {
-              // Ignore — may fail if already started
+              // Ignore; may fail if already started.
             }
           }
         };
@@ -982,25 +1012,36 @@ function SearchInput({ value, onChange, onSend, disabled, isHero = false, featur
             <Mic size={18} />
           </button>
 
-          {/* Send button */}
-          <button
-            onClick={handleSend}
-            disabled={(!value.trim() && selectedFiles.length === 0) || disabled}
+          {/* Send / Stop button */}
+          <motion.button
+            onClick={disabled ? onStop : handleSend}
+            disabled={!disabled && (!value.trim() && selectedFiles.length === 0)}
+            whileHover={
+              disabled
+                ? { scale: 1.05 }
+                : (value.trim() || selectedFiles.length > 0)
+                  ? { scale: 1.08, boxShadow: "0 0 0 3px rgba(34,211,238,0.25), 0 0 14px rgba(34,211,238,0.15)" }
+                  : {}
+            }
+            whileTap={{ scale: 0.92 }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
             className={cn(
               "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
-              (value.trim() || selectedFiles.length > 0) && !disabled
-                ? "bg-[#4A4A4A] text-white hover:bg-[#5A5A5A]"
-                : "bg-[#3A3A3A] text-muted-foreground/40 cursor-not-allowed"
+              disabled
+                ? "bg-foreground/10 text-foreground/70 hover:bg-foreground/15 cursor-pointer"
+                : (value.trim() || selectedFiles.length > 0)
+                  ? "bg-[#4A4A4A] text-white hover:bg-[#5A5A5A]"
+                  : "bg-[#3A3A3A] text-muted-foreground/40 cursor-not-allowed"
             )}
-            aria-label="Send"
-            title="Send message"
+            aria-label={disabled ? "Stop generation" : "Send"}
+            title={disabled ? "Stop generation" : "Send message"}
           >
             {disabled ? (
-              <div className="w-4 h-4 border-2 border-muted-foreground/20 border-t-muted-foreground/60 rounded-full animate-spin" />
+              <Square size={14} fill="currentColor" />
             ) : (
               <ArrowUp size={18} strokeWidth={2} />
             )}
-          </button>
+          </motion.button>
         </div>
       </div>
     </div>
@@ -1021,31 +1062,66 @@ function ActionBtn({ icon, label, onClick }) {
   )
 }
 
-/* ── Collapsible Activity Panel (Gemini/Perplexity-style) ── */
-function ActivityPanel({ steps, phase, toolName, isStreaming }) {
+/* Collapsible Activity Panel (Gemini/Perplexity-style) */
+function ActivityPanel({ steps, activities, phase, toolName, isStreaming }) {
   const [expanded, setExpanded] = React.useState(false);
 
-  const searchCount = steps.filter(s => s.type === "search").length;
-  const sourceCount = steps.filter(s => s.type === "sources").reduce((n, s) => n + (s.items?.length || 0), 0);
-  const browseCount = steps.filter(s => s.type === "browse").length;
+  const fallbackSteps = React.useMemo(() => {
+    if (steps.length > 0) return steps;
+    if (!Array.isArray(activities) || activities.length === 0) return [];
 
-  // Auto-expand when first step arrives during streaming
+    const generated = [];
+    const seen = new Set();
+    for (const activity of activities) {
+      if (!activity || activity === "thinking" || activity === "writing") continue;
+      if (activity.startsWith("tool:")) {
+        const tool = activity.slice(5) || "tool";
+        const signature = `tool:${tool}`;
+        if (seen.has(signature)) continue;
+        seen.add(signature);
+        generated.push({ type: "tool", tool });
+        continue;
+      }
+      if (activity === "searching") {
+        const signature = "search:fallback";
+        if (seen.has(signature)) continue;
+        seen.add(signature);
+        generated.push({ type: "search", query: "web query" });
+        continue;
+      }
+      if (activity === "reading") {
+        const signature = "browse:fallback";
+        if (seen.has(signature)) continue;
+        seen.add(signature);
+        generated.push({ type: "browse", url: "https://example.com" });
+      }
+    }
+    return generated;
+  }, [steps, activities]);
+
+  const displaySteps = fallbackSteps;
+  const searchCount = displaySteps.filter((s) => s.type === "search").length;
+  const sourceCount = displaySteps
+    .filter((s) => s.type === "sources")
+    .reduce((count, s) => count + (s.items?.length || 0), 0);
+  const browseCount = displaySteps.filter((s) => s.type === "browse").length;
+
+  // Auto-expand when first step arrives during streaming.
   React.useEffect(() => {
-    if (steps.length === 1 && isStreaming) setExpanded(true);
-  }, [steps.length, isStreaming]);
+    if (displaySteps.length === 1 && isStreaming) setExpanded(true);
+  }, [displaySteps.length, isStreaming]);
 
-  // Build summary text
   const summaryParts = [];
   if (searchCount > 0) summaryParts.push(`Searched ${searchCount} ${searchCount === 1 ? "query" : "queries"}`);
   if (sourceCount > 0) summaryParts.push(`Found ${sourceCount} ${sourceCount === 1 ? "source" : "sources"}`);
   if (browseCount > 0) summaryParts.push(`Read ${browseCount} ${browseCount === 1 ? "page" : "pages"}`);
-  const summaryText = summaryParts.join(" · ") || "Working…";
+  const summaryText = summaryParts.join(" · ") || "Working...";
 
   return (
     <div className="activity-panel mb-2 w-full max-w-[540px]">
       {/* Header / toggle */}
       <button
-        onClick={() => setExpanded(e => !e)}
+        onClick={() => setExpanded((prev) => !prev)}
         className="activity-panel-header"
         aria-expanded={expanded}
       >
@@ -1059,7 +1135,7 @@ function ActivityPanel({ steps, phase, toolName, isStreaming }) {
           ) : (
             <CheckCircle2 size={12} className="text-green-400 shrink-0" />
           )}
-          <span className="truncate">{isStreaming && phase ? summaryText : summaryText}</span>
+          <span className="truncate">{summaryText}</span>
         </span>
         <ChevronDown
           size={14}
@@ -1081,7 +1157,7 @@ function ActivityPanel({ steps, phase, toolName, isStreaming }) {
             className="overflow-hidden"
           >
             <div className="activity-panel-body">
-              {steps.map((step, i) => (
+              {displaySteps.map((step, i) => (
                 <ActivityStepRow key={i} step={step} />
               ))}
               {isStreaming && phase && (
@@ -1090,7 +1166,7 @@ function ActivityPanel({ steps, phase, toolName, isStreaming }) {
                     {phase === "searching" ? <Search size={12} /> : phase === "reading" ? <BookOpen size={12} /> : phase === "tool" ? <Wrench size={12} /> : <Brain size={12} />}
                   </span>
                   <span className="text-muted-foreground/70 italic">
-                    {phase === "searching" ? "Searching…" : phase === "reading" ? `Reading…` : phase === "tool" ? `Using ${toolName || "tool"}…` : "Thinking…"}
+                    {phase === "searching" ? "Searching..." : phase === "reading" ? "Reading..." : phase === "tool" ? `Using ${toolName || "tool"}...` : "Thinking..."}
                   </span>
                 </div>
               )}
@@ -1190,9 +1266,10 @@ function StreamingStatus({ phase, toolName }) {
           className="inline-flex items-center gap-1.5"
         >
           <span className="flex items-center">{icon}</span>
-          {label}…
+          {label}...
         </motion.span>
       </AnimatePresence>
     </div>
   );
 }
+

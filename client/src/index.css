@@ -36,38 +36,45 @@
   }
 
   .light {
-    /* ChatGPT-Style Light Mode with Cyan Primary */
-    --background: 0 0% 100%;
+    /* ChatGPT-Style Warm Light Mode */
+    --background: 240 5% 97%;
+    /* #F7F7F8 — warm off-white like ChatGPT */
     --foreground: 220 14% 10%;
     --card: 0 0% 100%;
+    /* #FFFFFF — cards stay pure white */
     --card-foreground: 220 14% 10%;
-    --popover: 210 20% 97%;
+    --popover: 240 5% 96%;
+    /* #F3F3F4 */
     --popover-foreground: 220 14% 10%;
     /* Cyan primary - same hue as dark mode */
     --primary: 187.9412 85.7143% 43%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 20% 96%;
+    --secondary: 240 5% 95%;
+    /* #F0F0F1 */
     --secondary-foreground: 220 14% 10%;
-    --muted: 210 20% 96%;
-    --muted-foreground: 220 9% 40%;
-    --accent: 210 20% 93%;
+    --muted: 240 5% 95%;
+    --muted-foreground: 220 9% 46%;
+    /* slightly darker for readability */
+    --accent: 240 5% 93%;
     --accent-foreground: 220 14% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 88%;
-    --input: 210 20% 97%;
+    --border: 220 9% 89%;
+    /* softer border */
+    --input: 240 5% 96%;
     --ring: 187.9412 85.7143% 43%;
     --input-surface: #FFFFFF;
-    --input-surface-focus: #F8FAFC;
-    --input-border: #E5E7EB;
+    --input-surface-focus: #F7F7F8;
+    --input-border: #E8E8E9;
     --input-border-focus: #22D3EE;
     --placeholder-color: #9CA3AF;
-    --scrollbar-thumb: rgba(0, 0, 0, 0.12);
-    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.2);
+    --scrollbar-thumb: rgba(0, 0, 0, 0.1);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.18);
 
     /* Light mode specific colors for components */
-    --sidebar-bg: 210 20% 97%;
-    --sidebar-border: 220 13% 90%;
+    --sidebar-bg: 240 5% 95%;
+    /* #F0F0F1 — subtle contrast vs main bg */
+    --sidebar-border: 220 9% 90%;
     --chat-user-bubble: 187.9412 85.7143% 43%;
     --chat-user-text: 0 0% 100%;
     --message-text: 220 14% 15%;
@@ -133,6 +140,12 @@ button:active:not(:disabled),
 
 .stream-caret {
   animation: streamCaret 0.8s ease-in-out infinite;
+}
+
+.streaming-plain-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-wrap: pretty;
 }
 
 /* Performance: content-visibility for off-screen messages */
@@ -970,4 +983,15 @@ aside {
 /* Icon colors in sidebar */
 .light .text-\[\#22D3EE\] {
   color: #0891B2 !important;
+}
+
+/* Shimmer slide animation for model dropdown loading state */
+@keyframes shimmer-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(200%);
+  }
 }

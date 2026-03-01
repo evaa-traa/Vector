@@ -17,17 +17,12 @@ import {
     Upload,
     FileDown
 } from "lucide-react";
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../utils/cn.js";
 import { useLabsProjects } from "../hooks/useLabsProjects.js";
 import LabsEditor from "./LabsEditor.jsx";
 import { exportToWord } from "../utils/exportToWord.js";
 import { exportToPdf } from "../utils/exportToPdf.js";
 import { stripMetadata } from "../utils/contentUtils.js";
-
-function cn(...inputs) {
-    return twMerge(clsx(inputs));
-}
 
 /**
  * Project item in the sidebar
@@ -120,7 +115,9 @@ function ProjectItem({ project, isActive, onSelect, onRename, onDelete, modelNam
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onDelete(project.id);
+                                if (window.confirm(`Delete "${project.name}"? This cannot be undone.`)) {
+                                    onDelete(project.id);
+                                }
                             }}
                             className="p-1 hover:bg-destructive/20 hover:text-destructive rounded"
                             title="Delete"
@@ -164,10 +161,10 @@ export default function LabsArea({
     const [showProjectList, setShowProjectList] = useState(true);
     const [saveStatus, setSaveStatus] = useState("saved");
     const [isImporting, setIsImporting] = useState(false);
-    const [showExportMenu, setShowExportMenu] = useState(false);
+    const [showExportDialog, setShowExportDialog] = useState(false);
+    const [exportStatus, setExportStatus] = useState(null); // null | 'preparing-word' | 'preparing-pdf'
     const instructionRef = useRef(null);
     const importInputRef = useRef(null);
-    const exportMenuRef = useRef(null);
 
     // Notify parent when project lock state changes
     useEffect(() => {
@@ -300,38 +297,40 @@ export default function LabsArea({
     // Handle Word export
     const handleExportWord = async () => {
         if (!activeProject?.document) return;
-        setShowExportMenu(false);
-
+        setExportStatus('preparing-word');
         try {
             await exportToWord(activeProject.document, activeProject.name);
         } catch (err) {
             setError("Failed to export document");
             console.error("[Labs] Export error:", err);
+        } finally {
+            setExportStatus(null);
+            setShowExportDialog(false);
         }
     };
 
     // Handle PDF export
     const handleExportPdf = async () => {
         if (!activeProject?.document) return;
-        setShowExportMenu(false);
-
+        setExportStatus('preparing-pdf');
         try {
             await exportToPdf(activeProject.document, activeProject.name);
         } catch (err) {
             setError("Failed to export PDF");
             console.error("[Labs] PDF Export error:", err);
+        } finally {
+            setExportStatus(null);
+            setShowExportDialog(false);
         }
     };
 
-    // Close export menu when clicking outside
+    // Close export dialog on ESC
     useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
-                setShowExportMenu(false);
-            }
+        const handleEsc = (e) => {
+            if (e.key === 'Escape' && showExportDialog && !exportStatus) setShowExportDialog(false);
         };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
     }, []);
 
     // Hide project list on mobile by default
@@ -480,46 +479,101 @@ export default function LabsArea({
                                         <span className="hidden sm:inline">Save</span>
                                     </button>
 
-                                    {/* Export Dropdown */}
-                                    <div className="relative" ref={exportMenuRef}>
-                                        <button
-                                            onClick={() => setShowExportMenu(!showExportMenu)}
-                                            disabled={!activeProject.document}
-                                            className={cn(
-                                                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                                                activeProject.document
-                                                    ? "bg-primary/10 text-primary hover:bg-primary/20"
-                                                    : "bg-foreground/5 text-muted-foreground/50 cursor-not-allowed"
-                                            )}
-                                        >
-                                            <Download size={14} />
-                                            <span className="hidden sm:inline">Export</span>
-                                        </button>
+                                    {/* Export Button — opens dialog */}
+                                    <button
+                                        onClick={() => setShowExportDialog(true)}
+                                        disabled={!activeProject.document}
+                                        className={cn(
+                                            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                                            activeProject.document
+                                                ? "bg-primary/10 text-primary hover:bg-primary/20"
+                                                : "bg-foreground/5 text-muted-foreground/50 cursor-not-allowed"
+                                        )}
+                                    >
+                                        <Download size={14} />
+                                        <span className="hidden sm:inline">Export</span>
+                                    </button>
 
-                                        <AnimatePresence>
-                                            {showExportMenu && (
+                                    {/* ── Export Dialog Modal ── */}
+                                    <AnimatePresence>
+                                        {showExportDialog && (
+                                            <>
+                                                {/* Backdrop */}
                                                 <motion.div
-                                                    initial={{ opacity: 0, y: -5 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, y: -5 }}
-                                                    className="absolute right-0 top-full mt-1 bg-[#1E1E1E] border border-border rounded-lg shadow-xl z-50 min-w-[120px] overflow-hidden"
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    exit={{ opacity: 0 }}
+                                                    className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
+                                                    onClick={() => !exportStatus && setShowExportDialog(false)}
+                                                />
+                                                {/* Dialog */}
+                                                <motion.div
+                                                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                                                    className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[61] bg-popover border border-border rounded-2xl shadow-2xl w-[380px] max-w-[90vw] overflow-hidden"
                                                 >
-                                                    <button
-                                                        onClick={handleExportWord}
-                                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-foreground/10 transition-colors"
-                                                    >
-                                                        <FileText size={14} className="shrink-0" /> Word (.docx)
-                                                    </button>
-                                                    <button
-                                                        onClick={handleExportPdf}
-                                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-foreground/10 transition-colors"
-                                                    >
-                                                        <FileDown size={14} className="shrink-0" /> PDF (.pdf)
-                                                    </button>
+                                                    {/* Header */}
+                                                    <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                                                        <div className="flex items-center gap-2.5">
+                                                            <Download size={16} className="text-primary" />
+                                                            <span className="font-semibold text-sm text-foreground">Export Document</span>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => !exportStatus && setShowExportDialog(false)}
+                                                            className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
+                                                            disabled={!!exportStatus}
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Body */}
+                                                    <div className="p-5">
+                                                        {exportStatus ? (
+                                                            /* Preparing state */
+                                                            <div className="flex flex-col items-center justify-center py-6 gap-3">
+                                                                <Loader2 size={28} className="animate-spin text-primary" />
+                                                                <span className="text-sm text-muted-foreground font-medium">
+                                                                    Preparing your {exportStatus === 'preparing-word' ? '.docx' : '.pdf'} file…
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            /* Format selection */
+                                                            <div className="space-y-2">
+                                                                <p className="text-xs text-muted-foreground mb-3">Choose a format to download your document.</p>
+                                                                <button
+                                                                    onClick={handleExportWord}
+                                                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-foreground/3 hover:bg-foreground/6 hover:border-border/80 transition-all text-left group"
+                                                                >
+                                                                    <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                                                                        <FileText size={18} className="text-blue-400" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="text-sm font-medium text-foreground">Word Document</div>
+                                                                        <div className="text-xs text-muted-foreground">.docx — Microsoft Word & Google Docs</div>
+                                                                    </div>
+                                                                </button>
+                                                                <button
+                                                                    onClick={handleExportPdf}
+                                                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-foreground/3 hover:bg-foreground/6 hover:border-border/80 transition-all text-left group"
+                                                                >
+                                                                    <div className="w-9 h-9 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+                                                                        <FileDown size={18} className="text-red-400" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="text-sm font-medium text-foreground">PDF Document</div>
+                                                                        <div className="text-xs text-muted-foreground">.pdf — Universal printable format</div>
+                                                                    </div>
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
+                                            </>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
                             </div>
 
@@ -582,14 +636,44 @@ export default function LabsArea({
                         </>
                     ) : (
                         /* Empty State */
-                        <div className="flex-1 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 24 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                            className="flex-1 flex items-center justify-center p-4"
+                        >
                             <div className="text-center">
-                                <div className="w-14 h-14 rounded-2xl bg-foreground/5 border border-border flex items-center justify-center mx-auto mb-4">
-                                    <FileText className="text-muted-foreground w-7 h-7" />
-                                </div>
-                                <h2 className="text-lg font-semibold text-white mb-2">No Project Selected</h2>
-                                <p className="text-muted-foreground text-sm mb-4">Create a new project or import a document</p>
-                                <div className="flex items-center justify-center gap-2">
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                                    className="relative w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4"
+                                >
+                                    <FileText className="text-primary w-7 h-7" />
+                                    <div className="absolute inset-0 rounded-2xl bg-primary/5 animate-pulse" />
+                                </motion.div>
+                                <motion.h2
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.18, duration: 0.35 }}
+                                    className="text-lg font-semibold text-white mb-2"
+                                >
+                                    No Project Selected
+                                </motion.h2>
+                                <motion.p
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.24, duration: 0.35 }}
+                                    className="text-muted-foreground text-sm mb-5"
+                                >
+                                    Create a new project or import a document
+                                </motion.p>
+                                <motion.div
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.3, duration: 0.35 }}
+                                    className="flex items-center justify-center gap-2"
+                                >
                                     <button
                                         onClick={() => handleNewProject()}
                                         className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
@@ -603,9 +687,9 @@ export default function LabsArea({
                                         <Upload size={14} className="inline mr-1.5" />
                                         Import
                                     </button>
-                                </div>
+                                </motion.div>
                             </div>
-                        </div>
+                        </motion.div>
                     )}
                 </div>
             </div>

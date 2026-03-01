@@ -324,12 +324,35 @@ function elementsToDocx(elements) {
                 break;
 
             case "table":
+                // Calculate equal column widths for Google Docs compatibility
+                const numCols = el.rows[0] ? el.rows[0].length : 1;
+                const colWidthPct = Math.floor(100 / numCols);
+                const cellBorders = {
+                    top: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+                    bottom: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+                    left: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+                    right: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
+                };
                 const tableRows = el.rows.map((row, rowIdx) =>
                     new TableRow({
                         children: row.map(cell =>
                             new TableCell({
-                                children: [new Paragraph({ children: parseInlineFormatting(cell) })],
-                                shading: rowIdx === 0 ? { fill: "E8E8E8" } : undefined
+                                children: [
+                                    new Paragraph({
+                                        children: parseInlineFormatting(cell),
+                                        spacing: { before: 40, after: 40 },
+                                    })
+                                ],
+                                width: { size: colWidthPct, type: WidthType.PERCENTAGE },
+                                borders: cellBorders,
+                                shading: rowIdx === 0 ? { fill: "E8E8E8" } : undefined,
+                                verticalAlign: "center",
+                                margins: {
+                                    top: 40,
+                                    bottom: 40,
+                                    left: 80,
+                                    right: 80,
+                                },
                             })
                         )
                     })
@@ -337,9 +360,12 @@ function elementsToDocx(elements) {
                 children.push(
                     new Table({
                         rows: tableRows,
-                        width: { size: 100, type: WidthType.PERCENTAGE }
+                        width: { size: 100, type: WidthType.PERCENTAGE },
+                        layout: "fixed",
                     })
                 );
+                // Add spacing after table
+                children.push(new Paragraph({ spacing: { after: 200 } }));
                 break;
 
             case "hr":

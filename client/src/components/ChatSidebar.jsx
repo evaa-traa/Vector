@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageSquare,
@@ -7,16 +7,190 @@ import {
   Moon,
   Sun,
   Bot,
-  History,
-  FlaskConical
+  FlaskConical,
+  ChevronDown,
+  Check,
+  Lock,
+  RefreshCw,
 } from "lucide-react";
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../utils/cn.js";
 
-function cn(...inputs) {
-  return twMerge(clsx(inputs));
+// ── Custom Model Dropdown ──────────────────────────────────────────────────────
+function ModelDropdown({
+  models,
+  selectedModelId,
+  onSelectModel,
+  isLoading,
+  isLocked,
+  onReload,
+  modelsError,
+  modelsIssues,
+}) {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const selectedModel = models?.find((m) => m.id === selectedModelId);
+  const uploadsEnabled = Boolean(selectedModel?.features?.uploads);
+  const uploadsStatus = selectedModel?.features?.status || "unknown";
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div>
+      {/* Label row */}
+      <div className="flex items-center justify-between mb-1.5 px-0.5">
+        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+          {isLocked ? "Model (Locked)" : "Model"}
+        </span>
+        <button
+          onClick={onReload}
+          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
+          title="Reload models"
+          aria-label="Reload models"
+        >
+          <RefreshCw size={11} />
+        </button>
+      </div>
+
+      {/* Trigger */}
+      <div className="relative" ref={dropdownRef}>
+        <button
+          onClick={() =>
+            !isLocked && !isLoading && models?.length > 0 && setOpen((v) => !v)
+          }
+          disabled={isLoading || isLocked || !models?.length}
+          title={
+            isLocked
+              ? "Model locked to this session. Start a new chat to change."
+              : ""
+          }
+          className={cn(
+            "w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm transition-all border",
+            "bg-foreground/5 border-border",
+            isLocked || isLoading || !models?.length
+              ? "cursor-not-allowed opacity-60"
+              : "hover:bg-foreground/8 hover:border-border/70 cursor-pointer"
+          )}
+        >
+          <div className="flex-1 text-left truncate">
+            {isLoading ? (
+              /* Animated shimmer bar */
+              <span className="relative flex items-center gap-2 overflow-hidden">
+                <span className="block w-full h-[10px] rounded-full bg-foreground/10 overflow-hidden relative">
+                  <span
+                    className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-foreground/20 to-transparent"
+                    style={{ animation: "shimmer-slide 1.4s ease-in-out infinite" }}
+                  />
+                </span>
+              </span>
+            ) : selectedModel ? (
+              <span className="font-medium text-foreground truncate">
+                {selectedModel.name}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">No models</span>
+            )}
+          </div>
+          {isLocked ? (
+            <Lock size={12} className="text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronDown
+              size={13}
+              className={cn(
+                "shrink-0 text-muted-foreground transition-transform duration-200",
+                open && "rotate-180"
+              )}
+            />
+          )}
+        </button>
+
+        {/* Dropdown list */}
+        <AnimatePresence>
+          {open && models?.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -6, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.97 }}
+              transition={{ duration: 0.13, ease: "easeOut" }}
+              className="absolute top-full left-0 right-0 mt-1.5 bg-popover border border-border rounded-xl shadow-2xl z-[60] overflow-hidden"
+            >
+              {models.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    onSelectModel(m.id);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left transition-colors",
+                    m.id === selectedModelId
+                      ? "bg-primary/10 text-foreground"
+                      : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                  )}
+                >
+                  <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                    {m.id === selectedModelId && (
+                      <Check size={13} className="text-primary" />
+                    )}
+                  </div>
+                  <span className="truncate">{m.name}</span>
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Status badge below trigger */}
+        {selectedModel && (
+          <div className="mt-1.5 px-0.5">
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                uploadsStatus === "ok"
+                  ? uploadsEnabled
+                    ? "border-emerald-500/40 text-emerald-400"
+                    : "border-border text-muted-foreground/60"
+                  : "border-amber-500/40 text-amber-400"
+              )}
+            >
+              {uploadsStatus === "ok"
+                ? uploadsEnabled
+                  ? "Uploads enabled"
+                  : "Uploads off"
+                : "Uploads unknown"}
+            </span>
+          </div>
+        )}
+
+        {/* Errors */}
+        {(modelsError ||
+          (!isLoading && !models?.length && !modelsError) ||
+          modelsIssues?.length > 0) && (
+            <div className="mt-1 px-0.5 text-[11px] text-destructive/80 space-y-0.5">
+              {modelsError && <div>{modelsError}</div>}
+              {!modelsError && !isLoading && !models?.length && (
+                <div className="text-muted-foreground">
+                  Add MODEL_1_NAME / MODEL_1_ID / MODEL_1_HOST to your .env
+                </div>
+              )}
+              {modelsIssues?.slice(0, 2).map((issue) => (
+                <div key={issue}>{issue}</div>
+              ))}
+            </div>
+          )}
+      </div>
+    </div>
+  );
 }
 
+// ── Main Sidebar ───────────────────────────────────────────────────────────────
 export default function ChatSidebar({
   open,
   setOpen,
@@ -42,22 +216,22 @@ export default function ChatSidebar({
   onNavigateToLabs,
   onNavigateToChat,
 }) {
-  const selectedModel = models?.find((item) => item.id === selectedModelId);
-  const uploadsStatus = selectedModel?.features?.status || "unknown";
-  const uploadsEnabled = Boolean(selectedModel?.features?.uploads);
-  const historyScrollRef = React.useRef(null);
+  const [historyExpanded, setHistoryExpanded] = useState(true);
+  const [labsVisited, setLabsVisited] = useState(
+    () => localStorage.getItem("labs_visited") === "true"
+  );
+  const historyScrollRef = useRef(null);
 
-  React.useEffect(() => {
+  // Scrollbar fade-in on scroll
+  useEffect(() => {
     const el = historyScrollRef.current;
     if (!el) return;
-
     let timeoutId = null;
     const onScroll = () => {
       el.classList.add("scrolling");
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => el.classList.remove("scrolling"), 150);
     };
-
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       el.removeEventListener("scroll", onScroll);
@@ -65,10 +239,29 @@ export default function ChatSidebar({
     };
   }, []);
 
+  const handleNavigateToLabs = () => {
+    if (!labsVisited) {
+      setLabsVisited(true);
+      localStorage.setItem("labs_visited", "true");
+    }
+    onNavigateToLabs?.();
+  };
+
+  const handleClearHistory = () => {
+    if (
+      window.confirm(
+        "Clear all chat history? This cannot be undone."
+      )
+    ) {
+      onClearHistory?.();
+    }
+  };
+
   return (
     <AnimatePresence mode="wait">
       {open && (
         <>
+          {/* Mobile overlay */}
           <motion.button
             type="button"
             initial={{ opacity: 0 }}
@@ -79,229 +272,218 @@ export default function ChatSidebar({
             onClick={() => setOpen?.(false)}
             aria-label="Close sidebar overlay"
           />
+
+          {/* Sidebar panel */}
           <motion.aside
             initial={{ x: -300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed left-0 top-0 bottom-0 z-50 w-[280px] border-r border-[rgba(255,255,255,0.04)] bg-popover flex flex-col p-4"
+            transition={{ type: "spring", stiffness: 320, damping: 32, mass: 0.9 }}
+            className="fixed left-0 top-0 bottom-0 z-50 w-[280px] bg-popover border-r border-[rgba(255,255,255,0.05)] flex flex-col"
           >
-            {/* Header & Logo */}
-            <div className="flex items-center justify-between mb-6 px-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-foreground/5 border border-border flex items-center justify-center text-foreground">
-                  <Bot size={18} />
+            {/* ── Header ── */}
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-[rgba(255,255,255,0.05)]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-[#22D3EE]/10 border border-[#22D3EE]/20 flex items-center justify-center">
+                  <Bot size={15} className="text-[#22D3EE]" />
                 </div>
-                <h1 className="text-xl font-display font-bold text-foreground">
+                <span className="font-semibold text-[15px] text-foreground tracking-tight">
                   Vector
-                </h1>
+                </span>
               </div>
               <button
                 onClick={() => setOpen?.(false)}
-                className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors focus-visible:outline-none"
                 aria-label="Close sidebar"
               >
-                <span className="text-lg leading-none">×</span>
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 13 13"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M1 1L12 12M12 1L1 12"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                  />
+                </svg>
               </button>
             </div>
 
-            {/* View Navigation */}
-            <div className="space-y-2 mb-6">
-              <div className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Navigate
-              </div>
-              <div className="space-y-1">
+            {/* ── Nav Tabs ── */}
+            <div className="px-3 pt-3 pb-2">
+              <div className="flex items-center gap-1 bg-foreground/5 rounded-xl p-1">
                 <button
                   onClick={onNavigateToChat}
                   className={cn(
-                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none",
+                    "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-medium transition-all",
                     activeView === "chat"
-                      ? "bg-foreground/10 text-foreground"
-                      : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground/80"
                   )}
                 >
-                  <MessageSquare size={16} />
+                  <MessageSquare size={13} />
                   <span>Chat</span>
                 </button>
                 <button
-                  onClick={onNavigateToLabs}
+                  onClick={handleNavigateToLabs}
                   className={cn(
-                    "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none",
+                    "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-medium transition-all relative",
                     activeView === "labs"
-                      ? "bg-foreground/10 text-foreground"
-                      : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground/80"
                   )}
                 >
-                  <FlaskConical size={16} />
+                  <FlaskConical size={13} />
                   <span>Labs</span>
-                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-medium">New</span>
+                  {!labsVisited && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-primary rounded-full"
+                    />
+                  )}
                 </button>
               </div>
             </div>
 
-            {/* New Chat Button - only in chat view */}
-            {activeView === "chat" && (
-              <button
-                onClick={onNewChat}
-                className="group flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-transparent border border-border transition-[background-color,border-color] duration-[120ms] ease-out mb-6 text-sm font-medium text-foreground hover:bg-foreground/5 hover:border-[var(--input-border-focus)] active:bg-foreground/8 focus-visible:outline-none"
-              >
-                <div className="bg-foreground/5 p-1.5 rounded-lg text-[#22D3EE] transition-colors group-hover:bg-foreground/8">
-                  <Plus size={18} />
-                </div>
-                <span>New Thread</span>
-                <div className="ml-auto text-xs text-muted-foreground border border-border rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Ctrl+N
-                </div>
-              </button>
-            )}
+            {/* ── Chat View Content ── */}
+            {activeView === "chat" ? (
+              <div className="flex-1 flex flex-col min-h-0 px-3 pb-2 gap-3 overflow-hidden">
+                {/* New Thread */}
+                <button
+                  onClick={onNewChat}
+                  className="group flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl border border-border transition-all hover:bg-foreground/5 hover:border-foreground/20 active:scale-[0.98] focus-visible:outline-none text-[13px] font-medium text-foreground"
+                >
+                  <div className="w-5 h-5 rounded-md bg-[#22D3EE]/10 flex items-center justify-center text-[#22D3EE]">
+                    <Plus size={13} />
+                  </div>
+                  <span>New Thread</span>
+                  <kbd className="ml-auto text-[10px] text-muted-foreground/50 border border-border/60 rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity font-sans">
+                    Ctrl+N
+                  </kbd>
+                </button>
 
-            {/* Models Selection - only in chat view */}
-            {activeView === "chat" && (
-              <div className="mb-6 space-y-2">
-                <div className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                  <span>{isSessionLocked ? "Model (Locked)" : "Model"}</span>
+                {/* Model Dropdown */}
+                <ModelDropdown
+                  models={models}
+                  selectedModelId={selectedModelId}
+                  onSelectModel={onSelectModel}
+                  isLoading={isModelsLoading}
+                  isLocked={isSessionLocked}
+                  onReload={onReloadModels}
+                  modelsError={modelsError}
+                  modelsIssues={modelsIssues}
+                />
+
+                {/* ── History Section (Collapsible) ── */}
+                <div className="flex-1 flex flex-col min-h-0">
                   <button
-                    type="button"
-                    onClick={onReloadModels}
-                    className="text-[11px] font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded px-1"
+                    onClick={() => setHistoryExpanded((v) => !v)}
+                    className="flex items-center justify-between w-full px-0.5 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground/70 transition-colors focus-visible:outline-none"
                   >
-                    Refresh
-                  </button>
-                </div>
-                <div className="relative">
-                  <select
-                    className={cn(
-                      "w-full appearance-none bg-foreground/5 text-foreground text-sm rounded-lg pl-3 pr-8 py-2.5 border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 transition-all hover:bg-foreground/8 disabled:opacity-60",
-                      isSessionLocked && "cursor-not-allowed opacity-70"
-                    )}
-                    value={selectedModelId}
-                    onChange={(e) => onSelectModel(e.target.value)}
-                    disabled={isModelsLoading || !models?.length || isSessionLocked}
-                    title={isSessionLocked ? "Model is locked to this chat session. Start a new chat to change models." : ""}
-                  >
-                    {isModelsLoading && (
-                      <option value="" className="bg-background">
-                        Loading models…
-                      </option>
-                    )}
-                    {!isModelsLoading && models?.length > 0 && (
-                      <>
-                        <option value="" disabled className="bg-background">
-                          Select a model
-                        </option>
-                        {models.map((m) => (
-                          <option key={m.id} value={m.id} className="bg-background">
-                            {m.name}
-                          </option>
-                        ))}
-                      </>
-                    )}
-                    {!isModelsLoading && !models?.length && (
-                      <option value="" className="bg-background">
-                        No models configured
-                      </option>
-                    )}
-                  </select>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
-                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                </div>
-                {selectedModel && (
-                  <div className="px-2 flex items-center gap-2 text-[11px]">
-                    <span className={cn(
-                      "inline-flex items-center rounded-full border px-2 py-0.5 font-medium",
-                      uploadsStatus === "ok"
-                        ? uploadsEnabled
-                          ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
-                          : "border-border text-muted-foreground bg-foreground/5"
-                        : "border-amber-500/40 text-amber-400 bg-amber-500/10"
-                    )}>
-                      {uploadsStatus === "ok"
-                        ? uploadsEnabled
-                          ? "Uploads enabled"
-                          : "Uploads off"
-                        : "Uploads unknown"}
-                    </span>
-                  </div>
-                )}
-                {(modelsError || (modelsIssues && modelsIssues.length > 0) || (!isModelsLoading && !models?.length)) && (
-                  <div className="px-2 text-xs text-muted-foreground space-y-1">
-                    {modelsError && <div className="text-destructive">{modelsError}</div>}
-                    {!modelsError && !isModelsLoading && !models?.length && (
-                      <div>
-                        Add MODEL_1_NAME / MODEL_1_ID / MODEL_1_HOST to your environment.
-                      </div>
-                    )}
-                    {modelsIssues?.slice(0, 3).map((issue) => (
-                      <div key={issue}>{issue}</div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* History List - only in chat view */}
-            {activeView === "chat" && (
-              <div ref={historyScrollRef} className="flex-1 overflow-y-auto -mx-2 px-2 custom-scrollbar">
-                <div className="mb-2 px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                  <History size={12} />
-                  Recent
-                </div>
-                <div className="space-y-1">
-                  {historyList.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/70 gap-2">
-                      <MessageSquare size={24} className="opacity-20" />
-                      <span className="text-xs">No history yet</span>
+                    <div className="flex items-center gap-1.5">
+                      <span>Recent</span>
+                      {historyList.length > 0 && (
+                        <span className="text-[10px] font-normal text-muted-foreground/40 normal-case tracking-normal">
+                          ({historyList.length})
+                        </span>
+                      )}
                     </div>
-                  ) : (
-                    historyList.map((session, i) => (
-                      <button
-                        key={session.id}
-                        onClick={() => onSelectSession(session.id)}
-                        className={cn(
-                          "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors group flex items-center gap-3 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 stagger-item",
-                          activeSessionId === session.id
-                            ? "bg-[#202338] text-foreground"
-                            : "text-muted-foreground hover:bg-[#1A1D29] hover:text-foreground"
-                        )}
-                        style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
+                    <ChevronDown
+                      size={12}
+                      className={cn(
+                        "transition-transform duration-200",
+                        historyExpanded && "rotate-180"
+                      )}
+                    />
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {historyExpanded && (
+                      <motion.div
+                        key="history-list"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                        style={{ overflow: "hidden" }}
                       >
-                        {activeSessionId === session.id && (
-                          <span className="absolute left-0 top-2 bottom-2 w-[2px] bg-[#22D3EE] rounded-full" />
-                        )}
-                        <MessageSquare size={16} className={cn(
-                          "shrink-0 transition-colors",
-                          activeSessionId === session.id ? "text-foreground" : "text-muted-foreground/70 group-hover:text-muted-foreground"
-                        )} />
-                        <span className="truncate flex-1 z-10 relative">{session.title || "New Thread"}</span>
-                      </button>
-                    ))
-                  )}
+                        <div
+                          ref={historyScrollRef}
+                          className="overflow-y-auto custom-scrollbar space-y-0.5 pr-0.5 mt-0.5"
+                          style={{
+                            maxHeight: "calc(100vh - 450px)",
+                            minHeight: "40px",
+                          }}
+                        >
+                          {historyList.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-6 gap-1.5 text-muted-foreground/40">
+                              <MessageSquare size={18} />
+                              <span className="text-xs">No history yet</span>
+                            </div>
+                          ) : (
+                            historyList.map((session, i) => (
+                              <button
+                                key={session.id}
+                                onClick={() => onSelectSession(session.id)}
+                                className={cn(
+                                  "w-full text-left px-2.5 py-2 rounded-lg text-[13px] transition-colors group flex items-center gap-2 relative overflow-hidden focus-visible:outline-none stagger-item",
+                                  activeSessionId === session.id
+                                    ? "bg-foreground/10 text-foreground"
+                                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                                )}
+                                style={{
+                                  animationDelay: `${Math.min(i * 25, 200)}ms`,
+                                }}
+                              >
+                                {activeSessionId === session.id && (
+                                  <span className="absolute left-0 top-2 bottom-2 w-[2px] bg-[#22D3EE] rounded-full" />
+                                )}
+                                <MessageSquare
+                                  size={13}
+                                  className={cn(
+                                    "shrink-0",
+                                    activeSessionId === session.id
+                                      ? "text-muted-foreground"
+                                      : "text-muted-foreground/40 group-hover:text-muted-foreground/70"
+                                  )}
+                                />
+                                <span className="truncate flex-1 z-10 relative">
+                                  {session.title || "New Thread"}
+                                </span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
+            ) : (
+              <div className="flex-1" />
             )}
 
-            {/* Spacer for Labs view */}
-            {activeView === "labs" && <div className="flex-1" />}
-
-            {/* Footer Actions */}
-            <div className="pt-4 mt-4 border-t border-[rgba(255,255,255,0.04)] space-y-2">
+            {/* ── Footer ── */}
+            <div className="px-3 py-3 border-t border-[rgba(255,255,255,0.05)] space-y-0.5">
               {activeView === "chat" && (
                 <button
-                  onClick={onClearHistory}
-                  className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  onClick={handleClearHistory}
+                  className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-[13px] text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all focus-visible:outline-none"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={14} />
                   <span>Clear History</span>
                 </button>
               )}
               <button
                 onClick={onToggleTheme}
-                className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-[13px] text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-all focus-visible:outline-none"
               >
-                {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
                 <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
               </button>
             </div>

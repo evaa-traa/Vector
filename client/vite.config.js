@@ -8,15 +8,64 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   plugins: [react()],
+
   server: {
     proxy: {
-      "/chat": "http://localhost:3001",
-      "/models": "http://localhost:3001"
+      "/chat": {
+        target: "http://localhost:3000",
+        // Critical: disable response buffering for SSE streaming
+        configure: (proxy) => {
+          proxy.on("proxyRes", (proxyRes) => {
+            // Prevent http-proxy from buffering the SSE stream
+            proxyRes.headers["cache-control"] = "no-cache, no-transform";
+            proxyRes.headers["x-accel-buffering"] = "no";
+          });
+        },
+      },
+      "/models": "http://localhost:3000",
+      "/labs-model": "http://localhost:3000",
+      "/labs-edit": "http://localhost:3000",
+      "/labs-edit-selection": "http://localhost:3000",
+      "/predict": "http://localhost:3000"
     }
   },
+
   build: {
     outDir: path.resolve(__dirname, "../server/public"),
     emptyOutDir: true,
-    chunkSizeWarningLimit: 1000 // Suppress warning for chunks up to 1MB
+    chunkSizeWarningLimit: 600,
+
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React core — always first to load, tiny and stable
+          "vendor-react": ["react", "react-dom"],
+
+          // Animation — large but only needed for UI interactions
+          "vendor-motion": ["framer-motion"],
+
+          // Markdown rendering stack
+          "vendor-markdown": [
+            "react-markdown",
+            "remark-gfm",
+            "remark-math",
+            "rehype-katex",
+            "rehype-sanitize"
+          ],
+
+          // Math rendering (KaTeX is huge — ~300KB)
+          "vendor-katex": ["katex"],
+
+          // Document processing — only needed in Labs
+          "vendor-docx": ["docx", "mammoth"],
+
+          // PDF/canvas export — only needed in Labs
+          "vendor-pdf": ["jspdf", "html2canvas"],
+
+          // SSE parsing
+          "vendor-sse": ["eventsource-parser"]
+        }
+      }
+    }
   }
 });
