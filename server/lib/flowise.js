@@ -343,6 +343,14 @@ async function streamFlowise({ res, model, message, mode, sessionId, uploads = [
         return true;
     }
 
+    function unwrapEventEnvelope(parsedValue, expectedEventName) {
+        if (!parsedValue || typeof parsedValue !== "object") return parsedValue;
+        if (parsedValue.event === expectedEventName && Object.prototype.hasOwnProperty.call(parsedValue, "data")) {
+            return parsedValue.data;
+        }
+        return parsedValue;
+    }
+
     const parser = createParser((event) => {
         if (event.type !== "event") return;
         const upstreamEventName = event.event || "";
@@ -351,10 +359,16 @@ async function streamFlowise({ res, model, message, mode, sessionId, uploads = [
 
         // ── Named upstream events ──
         if (upstreamEventName) {
-            if (upstreamEventName === "token") { sendEvent(res, "token", { text: raw }); return; }
+            if (upstreamEventName === "token") {
+                const tokenParsed = parseMaybeJson(raw);
+                const tokenPayload = unwrapEventEnvelope(tokenParsed, "token");
+                const text = typeof tokenPayload === "string" ? tokenPayload : (tokenPayload?.text || tokenPayload?.token || raw);
+                sendEvent(res, "token", { text: String(text || "") });
+                return;
+            }
             if (upstreamEventName === "metadata") {
-                let meta = null;
-                try { meta = JSON.parse(raw); } catch { meta = { value: raw }; }
+                const metaParsed = parseMaybeJson(raw);
+                const meta = unwrapEventEnvelope(metaParsed, "metadata") || { value: raw };
                 sendEvent(res, "metadata", meta);
                 emitToolUsageFromPayload(meta);
                 return;
@@ -364,13 +378,13 @@ async function streamFlowise({ res, model, message, mode, sessionId, uploads = [
             if (upstreamEventName === "error") { sendEvent(res, "error", { message: raw }); ended = true; return; }
 
             if (upstreamEventName === "usedTools") {
-                const toolData = parseMaybeJson(raw);
+                const toolData = unwrapEventEnvelope(parseMaybeJson(raw), "usedTools");
                 emitToolUsageFromPayload(toolData);
                 return;
             }
 
             if (upstreamEventName === "agentFlowEvent") {
-                const flowData = parseMaybeJson(raw);
+                const flowData = unwrapEventEnvelope(parseMaybeJson(raw), "agentFlowEvent");
                 if (flowData) {
                     const step = flowData.step || flowData.state || flowData.type || "";
                     if (step) sendEvent(res, "activity", { state: step });
@@ -379,7 +393,8 @@ async function streamFlowise({ res, model, message, mode, sessionId, uploads = [
             }
 
             if (upstreamEventName === "agent_trace") {
-                processAgentTrace(res, parseMaybeJson(raw));
+                const traceData = unwrapEventEnvelope(parseMaybeJson(raw), "agent_trace");
+                processAgentTrace(res, traceData);
                 return;
             }
         }

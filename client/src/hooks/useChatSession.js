@@ -3,7 +3,8 @@ import { createParser } from "eventsource-parser";
 
 const MAX_MESSAGES = 20;
 const REQUEST_TIMEOUT_MS = 60000; // 60 second timeout
-const STREAM_FLUSH_INTERVAL_MS = 32;
+const STREAM_FLUSH_INTERVAL_MS = 16;
+const TRACE_BATCH_INTERVAL_MS = 40;
 const GLOBAL_HISTORY_KEY = "flowise_history_global";
 
 const MODES = [
@@ -652,6 +653,130 @@ export function useChatSession() {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      const pendingToolEvents = [];
+      const pendingAgentSteps = [];
+      let traceFlushTimer = null;
+      const applyTraceUpdates = (toolEvents, agentSteps) => {
+        if ((toolEvents?.length || 0) === 0 && (agentSteps?.length || 0) === 0) return;
+
+        updateSession(activeSession.id, (session) => {
+          let changed = false;
+          const nextMessages = session.messages.map((msg) => {
+            if (msg.id !== assistantMessage.id) return msg;
+
+            const existingSteps = msg.agentSteps || [];
+            const existingActivities = msg.activities || [];
+            const stepSignatures = new Set(existingSteps.map((step) => JSON.stringify(step)));
+            const activitySet = new Set(existingActivities);
+
+            let nextSteps = existingSteps;
+            let nextActivities = existingActivities;
+
+            for (const toolEvent of toolEvents) {
+              const derived = deriveStepsFromToolEvent(toolEvent);
+              for (const step of derived.steps) {
+                const signature = JSON.stringify(step);
+                if (stepSignatures.has(signature)) continue;
+                stepSignatures.add(signature);
+                if (nextSteps === existingSteps) nextSteps = [...existingSteps];
+                nextSteps.push(step);
+              }
+              for (const activityKey of derived.activities) {
+                if (!activityKey || activitySet.has(activityKey)) continue;
+                activitySet.add(activityKey);
+                if (nextActivities === existingActivities) nextActivities = [...existingActivities];
+                nextActivities.push(activityKey);
+              }
+            }
+
+            for (const step of agentSteps) {
+              const signature = JSON.stringify(step);
+              if (stepSignatures.has(signature)) continue;
+              stepSignatures.add(signature);
+              if (nextSteps === existingSteps) nextSteps = [...existingSteps];
+              nextSteps.push(step);
+            }
+
+            if (nextSteps.length > 60) {
+              nextSteps = nextSteps.slice(-60);
+            }
+
+            if (nextSteps !== existingSteps || nextActivities !== existingActivities) {
+              changed = true;
+              return {
+                ...msg,
+                agentSteps: nextSteps,
+                activities: nextActivities
+              };
+            }
+
+            return msg;
+          });
+
+          return changed ? { ...session, messages: nextMessages } : session;
+        });
+      };
+
+      const flushTraceUpdates = () => {
+        if (traceFlushTimer) {
+          clearTimeout(traceFlushTimer);
+          traceFlushTimer = null;
+        }
+        if (pendingToolEvents.length === 0 && pendingAgentSteps.length === 0) return;
+        const toolBatch = pendingToolEvents.splice(0, pendingToolEvents.length);
+        const stepBatch = pendingAgentSteps.splice(0, pendingAgentSteps.length);
+        applyTraceUpdates(toolBatch, stepBatch);
+      };
+
+      const appendToolEvents = (toolEvents) => {
+        if (!Array.isArray(toolEvents) || toolEvents.length === 0) return;
+        pendingToolEvents.push(...toolEvents);
+        if (!traceFlushTimer) {
+          traceFlushTimer = setTimeout(flushTraceUpdates, TRACE_BATCH_INTERVAL_MS);
+        }
+      };
+
+      const appendAgentStep = (agentStep) => {
+        if (!agentStep || typeof agentStep !== "object") return;
+        pendingAgentSteps.push(agentStep);
+        if (!traceFlushTimer) {
+          traceFlushTimer = setTimeout(flushTraceUpdates, TRACE_BATCH_INTERVAL_MS);
+        }
+      };
+
+      const extractToolEvents = (data, rawPayload) => {
+        let toolEvents = extractToolEventsFromMetadata(data);
+        if (toolEvents.length === 0) {
+          toolEvents = extractToolEventsFromText(rawPayload);
+        }
+        if (toolEvents.length === 0 && typeof data?.value === "string") {
+          toolEvents = extractToolEventsFromText(data.value);
+        }
+        return toolEvents;
+      };
+
+      let firstTokenFlushed = false;
+      const flushBufferedTokens = () => {
+        if (tokenFlushTimerRef.current) {
+          clearTimeout(tokenFlushTimerRef.current);
+          tokenFlushTimerRef.current = null;
+        }
+        const buffered = tokenBufferRef.current;
+        tokenBufferRef.current = "";
+        if (!buffered) return;
+        updateSession(activeSession.id, (session) => ({
+          ...session,
+          messages: session.messages.map((msg) =>
+            msg.id === assistantMessage.id
+              ? {
+                ...msg,
+                content: msg.content + buffered,
+                hasAnswerStarted: true
+              }
+              : msg
+          )
+        }));
+      };
 
       const parser = createParser((event) => {
         if (event.type !== "event") return;
@@ -673,26 +798,16 @@ export function useChatSession() {
               controller.abort();
             }, REQUEST_TIMEOUT_MS);
           }
-          // Buffer tokens and flush at a fixed cadence to reduce render churn.
+          // Flush the first visible token immediately, then batch at a tight cadence.
           tokenBufferRef.current += (parsed.text || "");
+          if (!firstTokenFlushed && tokenBufferRef.current.length > 0) {
+            firstTokenFlushed = true;
+            flushBufferedTokens();
+            return;
+          }
           if (!tokenFlushTimerRef.current) {
             tokenFlushTimerRef.current = setTimeout(() => {
-              tokenFlushTimerRef.current = null;
-              const buffered = tokenBufferRef.current;
-              tokenBufferRef.current = "";
-              if (!buffered) return;
-              updateSession(activeSession.id, (session) => ({
-                ...session,
-                messages: session.messages.map((msg) =>
-                  msg.id === assistantMessage.id
-                    ? {
-                      ...msg,
-                      content: msg.content + buffered,
-                      hasAnswerStarted: true
-                    }
-                    : msg
-                )
-              }));
+              flushBufferedTokens();
             }, STREAM_FLUSH_INTERVAL_MS);
           }
         }
@@ -716,84 +831,15 @@ export function useChatSession() {
         }
 
         if (eventName === "metadata") {
-          let toolEvents = extractToolEventsFromMetadata(parsed);
-          if (toolEvents.length === 0) {
-            toolEvents = extractToolEventsFromText(payload);
-          }
-          if (toolEvents.length === 0 && typeof parsed?.value === "string") {
-            toolEvents = extractToolEventsFromText(parsed.value);
-          }
-          if (toolEvents.length === 0) return;
+          appendToolEvents(extractToolEvents(parsed, payload));
+        }
 
-          updateSession(activeSession.id, (session) => {
-            let changed = false;
-            const nextMessages = session.messages.map((msg) => {
-              if (msg.id !== assistantMessage.id) return msg;
-
-              const existingSteps = msg.agentSteps || [];
-              const existingActivities = msg.activities || [];
-              const stepSignatures = new Set(existingSteps.map((step) => JSON.stringify(step)));
-              const activitySet = new Set(existingActivities);
-
-              let nextSteps = existingSteps;
-              let nextActivities = existingActivities;
-
-              for (const toolEvent of toolEvents) {
-                const derived = deriveStepsFromToolEvent(toolEvent);
-                for (const step of derived.steps) {
-                  const signature = JSON.stringify(step);
-                  if (stepSignatures.has(signature)) continue;
-                  stepSignatures.add(signature);
-                  if (nextSteps === existingSteps) nextSteps = [...existingSteps];
-                  nextSteps.push(step);
-                }
-                for (const activityKey of derived.activities) {
-                  if (!activityKey || activitySet.has(activityKey)) continue;
-                  activitySet.add(activityKey);
-                  if (nextActivities === existingActivities) nextActivities = [...existingActivities];
-                  nextActivities.push(activityKey);
-                }
-              }
-
-              if (nextSteps.length > 60) {
-                nextSteps = nextSteps.slice(-60);
-              }
-
-              if (nextSteps !== existingSteps || nextActivities !== existingActivities) {
-                changed = true;
-                return {
-                  ...msg,
-                  agentSteps: nextSteps,
-                  activities: nextActivities
-                };
-              }
-
-              return msg;
-            });
-
-            return changed ? { ...session, messages: nextMessages } : session;
-          });
+        if (eventName === "usedTools" || eventName === "agent_trace") {
+          appendToolEvents(extractToolEvents(parsed, payload));
         }
 
         if (eventName === "agentStep") {
-          updateSession(activeSession.id, (session) => {
-            let changed = false;
-            const nextMessages = session.messages.map((msg) => {
-              if (msg.id !== assistantMessage.id) return msg;
-              const currentSteps = msg.agentSteps || [];
-              const lastStep = currentSteps[currentSteps.length - 1];
-              const isDuplicate =
-                lastStep &&
-                JSON.stringify(lastStep) === JSON.stringify(parsed);
-              if (isDuplicate) return msg;
-              changed = true;
-              return {
-                ...msg,
-                agentSteps: [...currentSteps, parsed].slice(-60)
-              };
-            });
-            return changed ? { ...session, messages: nextMessages } : session;
-          });
+          appendAgentStep(parsed);
         }
 
         if (eventName === "error") {
@@ -821,26 +867,8 @@ export function useChatSession() {
       }
 
       // Final flush of any remaining buffered tokens
-      if (tokenFlushTimerRef.current) {
-        clearTimeout(tokenFlushTimerRef.current);
-        tokenFlushTimerRef.current = null;
-      }
-      if (tokenBufferRef.current) {
-        const remaining = tokenBufferRef.current;
-        tokenBufferRef.current = "";
-        updateSession(activeSession.id, (session) => ({
-          ...session,
-          messages: session.messages.map((msg) =>
-            msg.id === assistantMessage.id
-              ? {
-                ...msg,
-                content: msg.content + remaining,
-                hasAnswerStarted: true
-              }
-              : msg
-          )
-        }));
-      }
+      flushBufferedTokens();
+      flushTraceUpdates();
 
       // Final save
       setSessions(prev => [...prev]);
@@ -895,6 +923,10 @@ export function useChatSession() {
       if (tokenFlushTimerRef.current) {
         clearTimeout(tokenFlushTimerRef.current);
         tokenFlushTimerRef.current = null;
+      }
+      if (traceFlushTimer) {
+        clearTimeout(traceFlushTimer);
+        traceFlushTimer = null;
       }
       tokenBufferRef.current = "";
       setIsStreaming(false);

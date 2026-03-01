@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -7,16 +7,12 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { motion, AnimatePresence } from "framer-motion";
 import "katex/dist/katex.min.css";
 import {
-  SendHorizontal,
-  Sparkles,
   Globe,
-  ArrowRight,
   ArrowUp,
   Plus,
   Menu,
   Copy,
   RefreshCw,
-  Paperclip,
   Mic,
   X,
   Check,
@@ -25,9 +21,6 @@ import {
   BookOpen,
   Wrench,
   Brain,
-  PenLine,
-  ClipboardList,
-  Zap,
   CheckCircle2,
   Square
 } from "lucide-react";
@@ -307,7 +300,12 @@ const MessageRow = React.memo(({
 }) => {
   const sources = msg.content ? extractSources(msg.content) : [];
   const hasActivities = Array.isArray(msg.activities) && msg.activities.length > 0;
+  const traceActivities = hasActivities
+    ? msg.activities.filter((entry) => entry && (entry.startsWith("tool:") || entry === "searching" || entry === "reading"))
+    : [];
+  const hasTraceData = (msg.agentSteps?.length || 0) > 0 || traceActivities.length > 0;
   const [copied, setCopied] = React.useState(false);
+  const hasAnswerStarted = Boolean(msg.hasAnswerStarted || msg.content);
 
   // Only show phase animation for the LAST assistant message AND when streaming
   let phase = null;
@@ -317,7 +315,9 @@ const MessageRow = React.memo(({
     : [];
 
   if (isStreaming && isLastAssistant && msg.role === "assistant") {
-    if (toolActivities.length > 0) {
+    if (hasAnswerStarted) {
+      phase = "writing";
+    } else if (toolActivities.length > 0) {
       phase = "tool";
       activeToolName = toolActivities[toolActivities.length - 1];
     } else if (!hasActivities) {
@@ -345,6 +345,10 @@ const MessageRow = React.memo(({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const shouldShowActivityPanel =
+    msg.role === "assistant" &&
+    ((isStreaming && isLastAssistant) || hasTraceData);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -365,14 +369,15 @@ const MessageRow = React.memo(({
           {msg.role === "user" ? "You" : "Vector"}
         </div>
 
-        {/* Activity panel: shows while streaming, persists for completed steps */}
-        {msg.role === "assistant" && ((msg.agentSteps?.length > 0) || (msg.activities?.length > 0) || phase) && (
+        {/* Activity panel: streaming status + tool trace details */}
+        {shouldShowActivityPanel && (
           <ActivityPanel
             steps={msg.agentSteps || []}
             activities={msg.activities || []}
             phase={phase}
             toolName={activeToolName}
             isStreaming={isStreaming && isLastAssistant}
+            hasAnswerStarted={isStreaming && isLastAssistant && hasAnswerStarted}
           />
         )}
 
@@ -1049,31 +1054,24 @@ function SearchInput({ value, onChange, onSend, onStop, disabled, isHero = false
 }
 
 
-function ActionBtn({ icon, label, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-white hover:bg-foreground/5 transition-colors focus-visible:outline-none"
-      aria-label={label}
-    >
-      {icon}
-      <span className="hidden sm:inline">{label}</span>
-    </button>
-  )
-}
-
-/* Collapsible Activity Panel (Gemini/Perplexity-style) */
-function ActivityPanel({ steps, activities, phase, toolName, isStreaming }) {
+/* Collapsible Activity Panel (Perplexity-inspired) */
+function ActivityPanel({ steps, activities, phase, toolName, isStreaming, hasAnswerStarted }) {
   const [expanded, setExpanded] = React.useState(false);
+  const traceActivities = React.useMemo(
+    () =>
+      Array.isArray(activities)
+        ? activities.filter((entry) => entry && (entry.startsWith("tool:") || entry === "searching" || entry === "reading"))
+        : [],
+    [activities]
+  );
 
-  const fallbackSteps = React.useMemo(() => {
+  const displaySteps = React.useMemo(() => {
     if (steps.length > 0) return steps;
-    if (!Array.isArray(activities) || activities.length === 0) return [];
+    if (traceActivities.length === 0) return [];
 
     const generated = [];
     const seen = new Set();
-    for (const activity of activities) {
-      if (!activity || activity === "thinking" || activity === "writing") continue;
+    for (const activity of traceActivities) {
       if (activity.startsWith("tool:")) {
         const tool = activity.slice(5) || "tool";
         const signature = `tool:${tool}`;
@@ -1086,42 +1084,65 @@ function ActivityPanel({ steps, activities, phase, toolName, isStreaming }) {
         const signature = "search:fallback";
         if (seen.has(signature)) continue;
         seen.add(signature);
-        generated.push({ type: "search", query: "web query" });
+        generated.push({ type: "search", query: "Web search" });
         continue;
       }
       if (activity === "reading") {
-        const signature = "browse:fallback";
+        const signature = "reading:fallback";
         if (seen.has(signature)) continue;
         seen.add(signature);
-        generated.push({ type: "browse", url: "https://example.com" });
+        generated.push({ type: "tool", tool: "Reviewing sources" });
       }
     }
     return generated;
-  }, [steps, activities]);
+  }, [steps, traceActivities]);
 
-  const displaySteps = fallbackSteps;
+  const hasStepData = displaySteps.length > 0;
   const searchCount = displaySteps.filter((s) => s.type === "search").length;
   const sourceCount = displaySteps
     .filter((s) => s.type === "sources")
     .reduce((count, s) => count + (s.items?.length || 0), 0);
   const browseCount = displaySteps.filter((s) => s.type === "browse").length;
+  const toolCount = displaySteps.filter((s) => s.type === "tool").length;
 
-  // Auto-expand when first step arrives during streaming.
+  // Auto-expand while tools are active; collapse once answer writing starts.
   React.useEffect(() => {
-    if (displaySteps.length === 1 && isStreaming) setExpanded(true);
-  }, [displaySteps.length, isStreaming]);
+    if (isStreaming && hasStepData && !hasAnswerStarted) {
+      setExpanded(true);
+    }
+    if (isStreaming && hasStepData && hasAnswerStarted) {
+      setExpanded(false);
+    }
+  }, [hasStepData, isStreaming, hasAnswerStarted]);
 
   const summaryParts = [];
-  if (searchCount > 0) summaryParts.push(`Searched ${searchCount} ${searchCount === 1 ? "query" : "queries"}`);
-  if (sourceCount > 0) summaryParts.push(`Found ${sourceCount} ${sourceCount === 1 ? "source" : "sources"}`);
-  if (browseCount > 0) summaryParts.push(`Read ${browseCount} ${browseCount === 1 ? "page" : "pages"}`);
-  const summaryText = summaryParts.join(" · ") || "Working...";
+  if (searchCount > 0) summaryParts.push(`${searchCount} ${searchCount === 1 ? "search" : "searches"}`);
+  if (browseCount > 0) summaryParts.push(`${browseCount} ${browseCount === 1 ? "page" : "pages"} read`);
+  if (sourceCount > 0) summaryParts.push(`${sourceCount} ${sourceCount === 1 ? "source" : "sources"}`);
+  if (toolCount > 0) summaryParts.push(`${toolCount} ${toolCount === 1 ? "tool" : "tools"}`);
+
+  const phaseLabel =
+    phase === "searching"
+      ? "Searching"
+      : phase === "reading"
+        ? "Reviewing sources"
+        : phase === "tool"
+          ? `Using ${toolName || "tool"}`
+          : phase === "writing"
+            ? "Writing response"
+            : "Thinking";
+
+  const summaryText = !isStreaming && hasStepData
+    ? `${displaySteps.length} ${displaySteps.length === 1 ? "step" : "steps"} completed`
+    : summaryParts.length > 0
+      ? summaryParts.join(" · ")
+      : `${phaseLabel}${isStreaming ? "..." : ""}`;
 
   return (
-    <div className="activity-panel mb-2 w-full max-w-[540px]">
+    <div className="activity-panel mb-2 w-full max-w-[680px]">
       {/* Header / toggle */}
       <button
-        onClick={() => setExpanded((prev) => !prev)}
+        onClick={() => hasStepData && setExpanded((prev) => !prev)}
         className="activity-panel-header"
         aria-expanded={expanded}
       >
@@ -1137,18 +1158,20 @@ function ActivityPanel({ steps, activities, phase, toolName, isStreaming }) {
           )}
           <span className="truncate">{summaryText}</span>
         </span>
-        <ChevronDown
-          size={14}
-          className={cn(
-            "shrink-0 transition-transform duration-200",
-            expanded ? "rotate-180" : ""
-          )}
-        />
+        {hasStepData && (
+          <ChevronDown
+            size={14}
+            className={cn(
+              "shrink-0 transition-transform duration-200",
+              expanded ? "rotate-180" : ""
+            )}
+          />
+        )}
       </button>
 
       {/* Expanded step list */}
       <AnimatePresence initial={false}>
-        {expanded && (
+        {expanded && hasStepData && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -1160,7 +1183,7 @@ function ActivityPanel({ steps, activities, phase, toolName, isStreaming }) {
               {displaySteps.map((step, i) => (
                 <ActivityStepRow key={i} step={step} />
               ))}
-              {isStreaming && phase && (
+              {isStreaming && phase && (!hasAnswerStarted || phase !== "writing") && (
                 <div className="activity-step-row">
                   <span className="activity-step-icon">
                     {phase === "searching" ? <Search size={12} /> : phase === "reading" ? <BookOpen size={12} /> : phase === "tool" ? <Wrench size={12} /> : <Brain size={12} />}
@@ -1180,20 +1203,30 @@ function ActivityPanel({ steps, activities, phase, toolName, isStreaming }) {
 
 function ActivityStepRow({ step }) {
   if (step.type === "search") {
+    const queryText = typeof step.query === "string" && step.query.trim() ? step.query : "Web search";
     return (
       <div className="activity-step-row">
         <span className="activity-step-icon"><Search size={12} /></span>
-        <span>Searched: <span className="text-foreground/80 font-medium">"{step.query}"</span></span>
+        <span>Searched: <span className="text-foreground/80 font-medium">"{queryText}"</span></span>
       </div>
     );
   }
   if (step.type === "browse") {
-    let displayUrl = step.url;
+    const rawUrl = typeof step.url === "string" ? step.url : "";
+    const href = /^https?:\/\//i.test(rawUrl) ? rawUrl : "";
+    let displayUrl = rawUrl;
     try { displayUrl = new URL(step.url).hostname; } catch { }
     return (
       <div className="activity-step-row">
         <span className="activity-step-icon"><Globe size={12} /></span>
-        <span>Reading: <a href={step.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{displayUrl}</a></span>
+        <span>
+          Reading:{" "}
+          {href ? (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{displayUrl}</a>
+          ) : (
+            <span className="text-foreground/80">{displayUrl || "page"}</span>
+          )}
+        </span>
       </div>
     );
   }
@@ -1234,42 +1267,5 @@ function ActivityStepRow({ step }) {
     );
   }
   return null;
-}
-
-function StreamingStatus({ phase, toolName }) {
-  const config = {
-    thinking: { icon: <Brain size={11} />, label: "Thinking" },
-    searching: { icon: <Search size={11} />, label: "Searching" },
-    reasoning: { icon: <Brain size={11} />, label: "Analyzing" },
-    tool: { icon: <Wrench size={11} />, label: toolName ? `Using ${toolName}` : "Using tool" },
-    reading: { icon: <BookOpen size={11} />, label: "Reading sources" },
-    writing: { icon: <PenLine size={11} />, label: "Writing" },
-    planning: { icon: <ClipboardList size={11} />, label: "Planning" },
-    executing: { icon: <Zap size={11} />, label: "Executing" },
-  };
-  const { icon, label } = config[phase] || config.thinking;
-
-  return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-border bg-foreground/5 px-3 py-1.5 text-[12px] font-medium text-muted-foreground">
-      <span className="flex items-center gap-1">
-        <span className="thinking-dot w-1 h-1 rounded-full bg-muted-foreground/80" style={{ animationDelay: "0ms" }} />
-        <span className="thinking-dot w-1 h-1 rounded-full bg-muted-foreground/80" style={{ animationDelay: "140ms" }} />
-        <span className="thinking-dot w-1 h-1 rounded-full bg-muted-foreground/80" style={{ animationDelay: "280ms" }} />
-      </span>
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span
-          key={label}
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="inline-flex items-center gap-1.5"
-        >
-          <span className="flex items-center">{icon}</span>
-          {label}...
-        </motion.span>
-      </AnimatePresence>
-    </div>
-  );
 }
 

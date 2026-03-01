@@ -29,9 +29,27 @@ const { rateLimit } = require("express-rate-limit");
 const { loadModelsFromEnvDetailed } = require("./models");
 
 const app = express();
+app.disable("x-powered-by");
 
 // ── Security & parsing middleware ─────────────────────────────────────────────
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      fontSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      workerSrc: ["'self'", "blob:"]
+    }
+  }
+}));
 app.use(express.json({ limit: "10mb" }));
 app.use(morgan("tiny"));
 
@@ -43,7 +61,7 @@ const aiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many requests, please wait a moment and try again." }
 });
-app.use(["/chat", "/labs-edit", "/labs-edit-selection"], aiLimiter);
+app.use(["/chat", "/predict", "/labs-edit", "/labs-edit-selection"], aiLimiter);
 
 // ── Static frontend (production build) ───────────────────────────────────────
 const publicDir = path.join(__dirname, "public");

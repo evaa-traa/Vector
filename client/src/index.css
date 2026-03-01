@@ -403,9 +403,11 @@ aside {
 
 /* ── Activity Panel (Gemini/Perplexity-style) ── */
 .activity-panel {
-  border: 1px solid hsl(var(--border));
-  border-radius: 12px;
-  background: hsl(var(--foreground) / 0.03);
+  border: 1px solid hsl(var(--border) / 0.9);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, hsl(var(--foreground) / 0.04), hsl(var(--foreground) / 0.02));
+  box-shadow: 0 1px 0 hsl(var(--foreground) / 0.04) inset;
   overflow: hidden;
 }
 
@@ -413,10 +415,13 @@ aside {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   width: 100%;
-  padding: 8px 12px;
+  min-height: 36px;
+  padding: 8px 11px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   color: hsl(var(--muted-foreground));
   cursor: pointer;
   transition: background 150ms ease;
@@ -426,24 +431,26 @@ aside {
 }
 
 .activity-panel-header:hover {
-  background: hsl(var(--foreground) / 0.04);
+  background: hsl(var(--foreground) / 0.045);
 }
 
 .activity-panel-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 0 12px 10px;
+  gap: 1px;
+  padding: 8px 11px 10px;
+  border-top: 1px solid hsl(var(--border) / 0.7);
+  background: hsl(var(--foreground) / 0.015);
 }
 
 .activity-step-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 0;
+  padding: 4px 0 3px;
   font-size: 12px;
   color: hsl(var(--muted-foreground));
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .activity-step-icon {
@@ -457,7 +464,7 @@ aside {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 4px 0 4px 26px;
+  padding: 5px 0 3px 26px;
 }
 
 .activity-source-chip {
@@ -480,6 +487,22 @@ aside {
   background: hsl(var(--foreground) / 0.08);
   border-color: hsl(var(--foreground) / 0.15);
   color: hsl(var(--foreground) / 0.9);
+}
+
+@media (max-width: 640px) {
+  .activity-panel-header {
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 11.5px;
+  }
+
+  .activity-panel-body {
+    padding: 7px 10px 9px;
+  }
+
+  .activity-step-row {
+    font-size: 11.5px;
+  }
 }
 
 /* ── Selection Toolbar (Labs AI Edit) ── */
@@ -903,12 +926,12 @@ aside {
 }
 
 /* Labs project sidebar */
-.light .bg-foreground\/5 {
+.light [class*="bg-foreground/5"] {
   background-color: rgba(0, 0, 0, 0.03) !important;
 }
 
-.light .hover\:bg-foreground\/8:hover,
-.light .hover\:bg-foreground\/5:hover {
+.light [class*="hover:bg-foreground/8"]:hover,
+.light [class*="hover:bg-foreground/5"]:hover {
   background-color: rgba(0, 0, 0, 0.06) !important;
 }
 
@@ -920,7 +943,7 @@ aside {
 /* Activity panel in light mode */
 .light .activity-panel {
   border-color: hsl(220, 13%, 88%) !important;
-  background: rgba(0, 0, 0, 0.02) !important;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.022), rgba(0, 0, 0, 0.012)) !important;
 }
 
 .light .activity-panel-header {
@@ -933,6 +956,11 @@ aside {
 
 .light .activity-step-row {
   color: hsl(220, 9%, 40%) !important;
+}
+
+.light .activity-panel-body {
+  border-top-color: hsl(220, 13%, 86%) !important;
+  background: rgba(0, 0, 0, 0.01) !important;
 }
 
 .light .activity-source-chip {
@@ -955,7 +983,7 @@ aside {
 }
 
 /* Streaming status badges */
-.light .bg-foreground\/5.border-border {
+.light [class*="bg-foreground/5"][class*="border-border"] {
   background-color: rgba(0, 0, 0, 0.04) !important;
 }
 
