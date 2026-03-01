@@ -36,45 +36,38 @@
   }
 
   .light {
-    /* ChatGPT-Style Warm Light Mode */
-    --background: 240 5% 97%;
-    /* #F7F7F8 — warm off-white like ChatGPT */
+    /* ChatGPT-Style Light Mode with Cyan Primary */
+    --background: 0 0% 100%;
     --foreground: 220 14% 10%;
     --card: 0 0% 100%;
-    /* #FFFFFF — cards stay pure white */
     --card-foreground: 220 14% 10%;
-    --popover: 240 5% 96%;
-    /* #F3F3F4 */
+    --popover: 210 20% 97%;
     --popover-foreground: 220 14% 10%;
     /* Cyan primary - same hue as dark mode */
     --primary: 187.9412 85.7143% 43%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 95%;
-    /* #F0F0F1 */
+    --secondary: 210 20% 96%;
     --secondary-foreground: 220 14% 10%;
-    --muted: 240 5% 95%;
-    --muted-foreground: 220 9% 46%;
-    /* slightly darker for readability */
-    --accent: 240 5% 93%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 220 9% 40%;
+    --accent: 210 20% 93%;
     --accent-foreground: 220 14% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 9% 89%;
-    /* softer border */
-    --input: 240 5% 96%;
+    --border: 220 13% 88%;
+    --input: 210 20% 97%;
     --ring: 187.9412 85.7143% 43%;
     --input-surface: #FFFFFF;
-    --input-surface-focus: #F7F7F8;
-    --input-border: #E8E8E9;
+    --input-surface-focus: #F8FAFC;
+    --input-border: #E5E7EB;
     --input-border-focus: #22D3EE;
     --placeholder-color: #9CA3AF;
-    --scrollbar-thumb: rgba(0, 0, 0, 0.1);
-    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.18);
+    --scrollbar-thumb: rgba(0, 0, 0, 0.12);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.2);
 
     /* Light mode specific colors for components */
-    --sidebar-bg: 240 5% 95%;
-    /* #F0F0F1 — subtle contrast vs main bg */
-    --sidebar-border: 220 9% 90%;
+    --sidebar-bg: 210 20% 97%;
+    --sidebar-border: 220 13% 90%;
     --chat-user-bubble: 187.9412 85.7143% 43%;
     --chat-user-text: 0 0% 100%;
     --message-text: 220 14% 15%;
@@ -140,12 +133,6 @@ button:active:not(:disabled),
 
 .stream-caret {
   animation: streamCaret 0.8s ease-in-out infinite;
-}
-
-.streaming-plain-text {
-  white-space: pre-wrap;
-  word-break: break-word;
-  text-wrap: pretty;
 }
 
 /* Performance: content-visibility for off-screen messages */
@@ -403,11 +390,9 @@ aside {
 
 /* ── Activity Panel (Gemini/Perplexity-style) ── */
 .activity-panel {
-  border: 1px solid hsl(var(--border) / 0.9);
-  border-radius: 14px;
-  background:
-    linear-gradient(180deg, hsl(var(--foreground) / 0.04), hsl(var(--foreground) / 0.02));
-  box-shadow: 0 1px 0 hsl(var(--foreground) / 0.04) inset;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--foreground) / 0.03);
   overflow: hidden;
 }
 
@@ -415,13 +400,10 @@ aside {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
   width: 100%;
-  min-height: 36px;
-  padding: 8px 11px;
+  padding: 8px 12px;
   font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-weight: 500;
   color: hsl(var(--muted-foreground));
   cursor: pointer;
   transition: background 150ms ease;
@@ -431,26 +413,24 @@ aside {
 }
 
 .activity-panel-header:hover {
-  background: hsl(var(--foreground) / 0.045);
+  background: hsl(var(--foreground) / 0.04);
 }
 
 .activity-panel-body {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 8px 11px 10px;
-  border-top: 1px solid hsl(var(--border) / 0.7);
-  background: hsl(var(--foreground) / 0.015);
+  gap: 2px;
+  padding: 0 12px 10px;
 }
 
 .activity-step-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 0 3px;
+  padding: 4px 0;
   font-size: 12px;
   color: hsl(var(--muted-foreground));
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .activity-step-icon {
@@ -464,7 +444,7 @@ aside {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 5px 0 3px 26px;
+  padding: 4px 0 4px 26px;
 }
 
 .activity-source-chip {
@@ -487,22 +467,6 @@ aside {
   background: hsl(var(--foreground) / 0.08);
   border-color: hsl(var(--foreground) / 0.15);
   color: hsl(var(--foreground) / 0.9);
-}
-
-@media (max-width: 640px) {
-  .activity-panel-header {
-    min-height: 34px;
-    padding: 7px 10px;
-    font-size: 11.5px;
-  }
-
-  .activity-panel-body {
-    padding: 7px 10px 9px;
-  }
-
-  .activity-step-row {
-    font-size: 11.5px;
-  }
 }
 
 /* ── Selection Toolbar (Labs AI Edit) ── */
@@ -943,7 +907,7 @@ aside {
 /* Activity panel in light mode */
 .light .activity-panel {
   border-color: hsl(220, 13%, 88%) !important;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.022), rgba(0, 0, 0, 0.012)) !important;
+  background: rgba(0, 0, 0, 0.02) !important;
 }
 
 .light .activity-panel-header {
@@ -956,11 +920,6 @@ aside {
 
 .light .activity-step-row {
   color: hsl(220, 9%, 40%) !important;
-}
-
-.light .activity-panel-body {
-  border-top-color: hsl(220, 13%, 86%) !important;
-  background: rgba(0, 0, 0, 0.01) !important;
 }
 
 .light .activity-source-chip {
@@ -1011,15 +970,4 @@ aside {
 /* Icon colors in sidebar */
 .light .text-\[\#22D3EE\] {
   color: #0891B2 !important;
-}
-
-/* Shimmer slide animation for model dropdown loading state */
-@keyframes shimmer-slide {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(200%);
-  }
 }

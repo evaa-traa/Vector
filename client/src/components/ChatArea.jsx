@@ -7,12 +7,16 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { motion, AnimatePresence } from "framer-motion";
 import "katex/dist/katex.min.css";
 import {
+  SendHorizontal,
+  Sparkles,
   Globe,
+  ArrowRight,
   ArrowUp,
   Plus,
   Menu,
   Copy,
   RefreshCw,
+  Paperclip,
   Mic,
   X,
   Check,
@@ -21,12 +25,19 @@ import {
   BookOpen,
   Wrench,
   Brain,
-  CheckCircle2,
-  Square
+  PenLine,
+  ClipboardList,
+  Zap,
+  CheckCircle2
 } from "lucide-react";
-import { cn } from "../utils/cn.js";
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 import AudioVisualizer from "./AudioVisualizer.jsx";
+
+function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
 
 const allowedLinkProtocols = new Set(["http:", "https:", "mailto:", "tel:"]);
 
@@ -124,8 +135,7 @@ function MarkdownContent({ content }) {
           return '';
         })
         .join('');
-      // Stable ID from content to avoid re-render on every paint.
-      const index = codeContent.split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0).toString(36);
+      const index = Math.random().toString(36).substr(2, 9);
 
       return (
         <div className="relative group my-4 overflow-hidden">
@@ -214,7 +224,7 @@ function MarkdownContent({ content }) {
     ),
     li: ({ children, ordered, ...props }) => (
       <li className="relative pl-6 text-white/90" {...props}>
-        <span className="absolute left-0 text-muted-foreground">*</span>
+        <span className="absolute left-0 text-muted-foreground">•</span>
         {children}
       </li>
     ),
@@ -294,18 +304,15 @@ const MessageRow = React.memo(({
   isLastAssistant,
   isStreaming,
   showSearching,
+  activityLabels,
   onMessageChange,
   onSend,
-  retryUserMessage
+  activeSession,
+  onCopy
 }) => {
   const sources = msg.content ? extractSources(msg.content) : [];
   const hasActivities = Array.isArray(msg.activities) && msg.activities.length > 0;
-  const traceActivities = hasActivities
-    ? msg.activities.filter((entry) => entry && (entry.startsWith("tool:") || entry === "searching" || entry === "reading"))
-    : [];
-  const hasTraceData = (msg.agentSteps?.length || 0) > 0 || traceActivities.length > 0;
   const [copied, setCopied] = React.useState(false);
-  const hasAnswerStarted = Boolean(msg.hasAnswerStarted || msg.content);
 
   // Only show phase animation for the LAST assistant message AND when streaming
   let phase = null;
@@ -315,9 +322,7 @@ const MessageRow = React.memo(({
     : [];
 
   if (isStreaming && isLastAssistant && msg.role === "assistant") {
-    if (hasAnswerStarted) {
-      phase = "writing";
-    } else if (toolActivities.length > 0) {
+    if (toolActivities.length > 0) {
       phase = "tool";
       activeToolName = toolActivities[toolActivities.length - 1];
     } else if (!hasActivities) {
@@ -345,10 +350,6 @@ const MessageRow = React.memo(({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const shouldShowActivityPanel =
-    msg.role === "assistant" &&
-    ((isStreaming && isLastAssistant) || hasTraceData);
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -363,32 +364,26 @@ const MessageRow = React.memo(({
         "flex flex-col gap-2.5 min-w-0",
         msg.role === "user"
           ? "items-end max-w-[85%] md:max-w-[75%]"
-          : "items-start w-full max-w-full"
+          : "items-start max-w-full"
       )}>
         <div className="font-semibold text-[13px] text-white/90 mb-0.5 px-0.5">
           {msg.role === "user" ? "You" : "Vector"}
         </div>
 
-        {/* Activity panel: streaming status + tool trace details */}
-        {shouldShowActivityPanel && (
+        {/* Activity panel — shows while streaming OR persists after streaming for completed steps */}
+        {msg.role === "assistant" && (msg.agentSteps?.length > 0 || phase) && (
           <ActivityPanel
             steps={msg.agentSteps || []}
-            activities={msg.activities || []}
             phase={phase}
             toolName={activeToolName}
             isStreaming={isStreaming && isLastAssistant}
-            hasAnswerStarted={isStreaming && isLastAssistant && hasAnswerStarted}
           />
         )}
 
         <div className={cn("text-[15px] leading-[1.6] w-full", msg.role === "user" && "text-right")}>
           {msg.role === "assistant" ? (
             <div className="text-white/95">
-              {isStreaming && isLastAssistant ? (
-                <div className="streaming-plain-text">{msg.content}</div>
-              ) : (
-                <MarkdownContent content={msg.content} />
-              )}
+              <MarkdownContent content={msg.content} />
             </div>
           ) : (
             <div className="bg-[#2F2F2F] rounded-2xl px-4 py-3 text-white inline-block max-w-full break-words">
@@ -430,8 +425,12 @@ const MessageRow = React.memo(({
               </button>
               <button
                 onClick={() => {
-                  if (retryUserMessage) {
-                    onMessageChange(retryUserMessage);
+                  const lastUserMsg = [...(activeSession?.messages || [])]
+                    .slice(0, index)
+                    .reverse()
+                    .find(m => m.role === "user");
+                  if (lastUserMsg) {
+                    onMessageChange(lastUserMsg.content);
                     setTimeout(() => onSend(), 50);
                   }
                 }}
@@ -447,14 +446,7 @@ const MessageRow = React.memo(({
       </div>
     </motion.div>
   );
-}, (prev, next) =>
-  prev.msg === next.msg &&
-  prev.index === next.index &&
-  prev.isLastAssistant === next.isLastAssistant &&
-  prev.isStreaming === next.isStreaming &&
-  prev.showSearching === next.showSearching &&
-  prev.retryUserMessage === next.retryUserMessage
-);
+});
 
 export default function ChatArea({
   activeSession,
@@ -462,7 +454,6 @@ export default function ChatArea({
   message,
   onMessageChange,
   onSend,
-  onStop,
   onSelectFollowUp,
   activityLabels,
   toggleSidebar,
@@ -529,11 +520,12 @@ export default function ChatArea({
     // Don't auto-scroll if user has scrolled up
     if (userScrolledRef.current) return;
 
-    // Auto-scroll without smoothing during streaming; smooth only when idle.
+    // Instant scroll to bottom during streaming to prevent jarring motion
+    // Use smooth scroll only when not streaming
     const scrollToBottom = () => {
       el.scrollTo({
         top: el.scrollHeight,
-        behavior: isStreaming ? "auto" : "smooth"
+        behavior: isStreaming ? 'instant' : 'smooth'
       });
     };
 
@@ -551,19 +543,6 @@ export default function ChatArea({
   }, [isStreaming]);
 
   const isEmpty = !activeSession?.messages || activeSession.messages.length === 0;
-  const retryMessageByAssistantId = useMemo(() => {
-    const map = new Map();
-    const messages = activeSession?.messages || [];
-    let lastUserMessage = "";
-    for (const msg of messages) {
-      if (msg.role === "user") {
-        lastUserMessage = msg.content || "";
-      } else if (msg.role === "assistant") {
-        map.set(msg.id, lastUserMessage);
-      }
-    }
-    return map;
-  }, [activeSession?.messages]);
 
   return (
     <div className="flex-1 flex flex-col h-full relative bg-card">
@@ -584,41 +563,26 @@ export default function ChatArea({
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-card" ref={scrollRef}>
         {isEmpty ? (
-          /* Minimal hero (ChatGPT-style) */
+          /* Empty State / Hero Section */
           <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
+            <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-foreground/5 border border-border flex items-center justify-center mb-6">
+              <Sparkles className="text-muted-foreground w-7 h-7 md:w-8 md:h-8" />
+            </div>
+            <h1 className="text-2xl md:text-4xl font-display font-medium text-center mb-8 md:mb-12 text-white">
+              Where knowledge begins
+            </h1>
 
-            {/* Single clean fade-in without continuous animations */}
-            <motion.h1
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-              className="text-2xl md:text-[2.15rem] font-semibold text-center mb-8 md:mb-10 text-foreground tracking-tight"
-            >
-              What are you working on?
-            </motion.h1>
-
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.38, delay: 0.08, ease: "easeOut" }}
-              className="w-full max-w-2xl px-2"
-            >
+            <div className="w-full max-w-xl px-4">
               <SearchInput
                 value={message}
                 onChange={onMessageChange}
                 onSend={onSend}
-                onStop={onStop}
                 disabled={isStreaming}
                 isHero={true}
                 features={features}
               />
 
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.22, duration: 0.3 }}
-                className="mt-5 flex flex-wrap justify-center gap-2"
-              >
+              <div className="mt-6 md:mt-8 flex flex-wrap justify-center gap-2">
                 {[
                   "How does AI work?",
                   "Write a Python script",
@@ -630,13 +594,14 @@ export default function ChatArea({
                       onMessageChange(suggestion);
                       setTimeout(() => onSend(), 100);
                     }}
-                    className="px-3.5 py-1.5 rounded-full border border-border/60 bg-transparent text-xs text-muted-foreground hover:bg-foreground/5 hover:text-foreground hover:border-border transition-colors font-medium focus-visible:outline-none"
+                    className="px-3 py-2 md:px-4 rounded-full border border-border bg-foreground/5 text-xs md:text-sm text-muted-foreground hover:bg-foreground/8 hover:text-white transition-colors font-medium focus-visible:outline-none stagger-item"
+                    style={{ animationDelay: `${i * 80}ms` }}
                   >
                     {suggestion}
                   </button>
                 ))}
-              </motion.div>
-            </motion.div>
+              </div>
+            </div>
           </div>
         ) : (
           /* Chat Messages */
@@ -654,7 +619,8 @@ export default function ChatArea({
                     isLastAssistant={isLastAssistant}
                     isStreaming={isStreaming}
                     showSearching={showSearching}
-                    retryUserMessage={retryMessageByAssistantId.get(msg.id) || ""}
+                    activityLabels={activityLabels}
+                    activeSession={activeSession}
                     onMessageChange={onMessageChange}
                     onSend={onSend}
                   />
@@ -680,7 +646,6 @@ export default function ChatArea({
               value={message}
               onChange={onMessageChange}
               onSend={onSend}
-              onStop={onStop}
               disabled={isStreaming}
               features={features}
             />
@@ -691,7 +656,7 @@ export default function ChatArea({
   );
 }
 
-function SearchInput({ value, onChange, onSend, onStop, disabled, isHero = false, features = {} }) {
+function SearchInput({ value, onChange, onSend, disabled, isHero = false, features = {} }) {
   const fileInputRef = React.useRef(null);
   const textareaRef = React.useRef(null);
   const textareaScrollTimeoutRef = React.useRef(null);
@@ -822,12 +787,12 @@ function SearchInput({ value, onChange, onSend, onStop, disabled, isHero = false
         };
 
         recognition.onend = () => {
-          // Restart if still in recording mode; use ref to get current value.
+          // Restart if still in recording mode — use ref to get current value
           if (recognitionRef.current && isRecordingRef.current) {
             try {
               recognitionRef.current.start();
             } catch (e) {
-              // Ignore; may fail if already started.
+              // Ignore — may fail if already started
             }
           }
         };
@@ -1017,36 +982,25 @@ function SearchInput({ value, onChange, onSend, onStop, disabled, isHero = false
             <Mic size={18} />
           </button>
 
-          {/* Send / Stop button */}
-          <motion.button
-            onClick={disabled ? onStop : handleSend}
-            disabled={!disabled && (!value.trim() && selectedFiles.length === 0)}
-            whileHover={
-              disabled
-                ? { scale: 1.05 }
-                : (value.trim() || selectedFiles.length > 0)
-                  ? { scale: 1.08, boxShadow: "0 0 0 3px rgba(34,211,238,0.25), 0 0 14px rgba(34,211,238,0.15)" }
-                  : {}
-            }
-            whileTap={{ scale: 0.92 }}
-            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+          {/* Send button */}
+          <button
+            onClick={handleSend}
+            disabled={(!value.trim() && selectedFiles.length === 0) || disabled}
             className={cn(
               "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
-              disabled
-                ? "bg-foreground/10 text-foreground/70 hover:bg-foreground/15 cursor-pointer"
-                : (value.trim() || selectedFiles.length > 0)
-                  ? "bg-[#4A4A4A] text-white hover:bg-[#5A5A5A]"
-                  : "bg-[#3A3A3A] text-muted-foreground/40 cursor-not-allowed"
+              (value.trim() || selectedFiles.length > 0) && !disabled
+                ? "bg-[#4A4A4A] text-white hover:bg-[#5A5A5A]"
+                : "bg-[#3A3A3A] text-muted-foreground/40 cursor-not-allowed"
             )}
-            aria-label={disabled ? "Stop generation" : "Send"}
-            title={disabled ? "Stop generation" : "Send message"}
+            aria-label="Send"
+            title="Send message"
           >
             {disabled ? (
-              <Square size={14} fill="currentColor" />
+              <div className="w-4 h-4 border-2 border-muted-foreground/20 border-t-muted-foreground/60 rounded-full animate-spin" />
             ) : (
               <ArrowUp size={18} strokeWidth={2} />
             )}
-          </motion.button>
+          </button>
         </div>
       </div>
     </div>
@@ -1054,95 +1008,44 @@ function SearchInput({ value, onChange, onSend, onStop, disabled, isHero = false
 }
 
 
-/* Collapsible Activity Panel (Perplexity-inspired) */
-function ActivityPanel({ steps, activities, phase, toolName, isStreaming, hasAnswerStarted }) {
+function ActionBtn({ icon, label, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-white hover:bg-foreground/5 transition-colors focus-visible:outline-none"
+      aria-label={label}
+    >
+      {icon}
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  )
+}
+
+/* ── Collapsible Activity Panel (Gemini/Perplexity-style) ── */
+function ActivityPanel({ steps, phase, toolName, isStreaming }) {
   const [expanded, setExpanded] = React.useState(false);
-  const traceActivities = React.useMemo(
-    () =>
-      Array.isArray(activities)
-        ? activities.filter((entry) => entry && (entry.startsWith("tool:") || entry === "searching" || entry === "reading"))
-        : [],
-    [activities]
-  );
 
-  const displaySteps = React.useMemo(() => {
-    if (steps.length > 0) return steps;
-    if (traceActivities.length === 0) return [];
+  const searchCount = steps.filter(s => s.type === "search").length;
+  const sourceCount = steps.filter(s => s.type === "sources").reduce((n, s) => n + (s.items?.length || 0), 0);
+  const browseCount = steps.filter(s => s.type === "browse").length;
 
-    const generated = [];
-    const seen = new Set();
-    for (const activity of traceActivities) {
-      if (activity.startsWith("tool:")) {
-        const tool = activity.slice(5) || "tool";
-        const signature = `tool:${tool}`;
-        if (seen.has(signature)) continue;
-        seen.add(signature);
-        generated.push({ type: "tool", tool });
-        continue;
-      }
-      if (activity === "searching") {
-        const signature = "search:fallback";
-        if (seen.has(signature)) continue;
-        seen.add(signature);
-        generated.push({ type: "search", query: "Web search" });
-        continue;
-      }
-      if (activity === "reading") {
-        const signature = "reading:fallback";
-        if (seen.has(signature)) continue;
-        seen.add(signature);
-        generated.push({ type: "tool", tool: "Reviewing sources" });
-      }
-    }
-    return generated;
-  }, [steps, traceActivities]);
-
-  const hasStepData = displaySteps.length > 0;
-  const searchCount = displaySteps.filter((s) => s.type === "search").length;
-  const sourceCount = displaySteps
-    .filter((s) => s.type === "sources")
-    .reduce((count, s) => count + (s.items?.length || 0), 0);
-  const browseCount = displaySteps.filter((s) => s.type === "browse").length;
-  const toolCount = displaySteps.filter((s) => s.type === "tool").length;
-
-  // Auto-expand while tools are active; collapse once answer writing starts.
+  // Auto-expand when first step arrives during streaming
   React.useEffect(() => {
-    if (isStreaming && hasStepData && !hasAnswerStarted) {
-      setExpanded(true);
-    }
-    if (isStreaming && hasStepData && hasAnswerStarted) {
-      setExpanded(false);
-    }
-  }, [hasStepData, isStreaming, hasAnswerStarted]);
+    if (steps.length === 1 && isStreaming) setExpanded(true);
+  }, [steps.length, isStreaming]);
 
+  // Build summary text
   const summaryParts = [];
-  if (searchCount > 0) summaryParts.push(`${searchCount} ${searchCount === 1 ? "search" : "searches"}`);
-  if (browseCount > 0) summaryParts.push(`${browseCount} ${browseCount === 1 ? "page" : "pages"} read`);
-  if (sourceCount > 0) summaryParts.push(`${sourceCount} ${sourceCount === 1 ? "source" : "sources"}`);
-  if (toolCount > 0) summaryParts.push(`${toolCount} ${toolCount === 1 ? "tool" : "tools"}`);
-
-  const phaseLabel =
-    phase === "searching"
-      ? "Searching"
-      : phase === "reading"
-        ? "Reviewing sources"
-        : phase === "tool"
-          ? `Using ${toolName || "tool"}`
-          : phase === "writing"
-            ? "Writing response"
-            : "Thinking";
-
-  const summaryText = !isStreaming && hasStepData
-    ? `${displaySteps.length} ${displaySteps.length === 1 ? "step" : "steps"} completed`
-    : summaryParts.length > 0
-      ? summaryParts.join(" · ")
-      : `${phaseLabel}${isStreaming ? "..." : ""}`;
+  if (searchCount > 0) summaryParts.push(`Searched ${searchCount} ${searchCount === 1 ? "query" : "queries"}`);
+  if (sourceCount > 0) summaryParts.push(`Found ${sourceCount} ${sourceCount === 1 ? "source" : "sources"}`);
+  if (browseCount > 0) summaryParts.push(`Read ${browseCount} ${browseCount === 1 ? "page" : "pages"}`);
+  const summaryText = summaryParts.join(" · ") || "Working…";
 
   return (
-    <div className="activity-panel mb-2 w-full max-w-[680px]">
+    <div className="activity-panel mb-2 w-full max-w-[540px]">
       {/* Header / toggle */}
       <button
-        onClick={() => hasStepData && setExpanded((prev) => !prev)}
+        onClick={() => setExpanded(e => !e)}
         className="activity-panel-header"
         aria-expanded={expanded}
       >
@@ -1156,22 +1059,20 @@ function ActivityPanel({ steps, activities, phase, toolName, isStreaming, hasAns
           ) : (
             <CheckCircle2 size={12} className="text-green-400 shrink-0" />
           )}
-          <span className="truncate">{summaryText}</span>
+          <span className="truncate">{isStreaming && phase ? summaryText : summaryText}</span>
         </span>
-        {hasStepData && (
-          <ChevronDown
-            size={14}
-            className={cn(
-              "shrink-0 transition-transform duration-200",
-              expanded ? "rotate-180" : ""
-            )}
-          />
-        )}
+        <ChevronDown
+          size={14}
+          className={cn(
+            "shrink-0 transition-transform duration-200",
+            expanded ? "rotate-180" : ""
+          )}
+        />
       </button>
 
       {/* Expanded step list */}
       <AnimatePresence initial={false}>
-        {expanded && hasStepData && (
+        {expanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -1180,16 +1081,16 @@ function ActivityPanel({ steps, activities, phase, toolName, isStreaming, hasAns
             className="overflow-hidden"
           >
             <div className="activity-panel-body">
-              {displaySteps.map((step, i) => (
+              {steps.map((step, i) => (
                 <ActivityStepRow key={i} step={step} />
               ))}
-              {isStreaming && phase && (!hasAnswerStarted || phase !== "writing") && (
+              {isStreaming && phase && (
                 <div className="activity-step-row">
                   <span className="activity-step-icon">
                     {phase === "searching" ? <Search size={12} /> : phase === "reading" ? <BookOpen size={12} /> : phase === "tool" ? <Wrench size={12} /> : <Brain size={12} />}
                   </span>
                   <span className="text-muted-foreground/70 italic">
-                    {phase === "searching" ? "Searching..." : phase === "reading" ? "Reading..." : phase === "tool" ? `Using ${toolName || "tool"}...` : "Thinking..."}
+                    {phase === "searching" ? "Searching…" : phase === "reading" ? `Reading…` : phase === "tool" ? `Using ${toolName || "tool"}…` : "Thinking…"}
                   </span>
                 </div>
               )}
@@ -1203,30 +1104,20 @@ function ActivityPanel({ steps, activities, phase, toolName, isStreaming, hasAns
 
 function ActivityStepRow({ step }) {
   if (step.type === "search") {
-    const queryText = typeof step.query === "string" && step.query.trim() ? step.query : "Web search";
     return (
       <div className="activity-step-row">
         <span className="activity-step-icon"><Search size={12} /></span>
-        <span>Searched: <span className="text-foreground/80 font-medium">"{queryText}"</span></span>
+        <span>Searched: <span className="text-foreground/80 font-medium">"{step.query}"</span></span>
       </div>
     );
   }
   if (step.type === "browse") {
-    const rawUrl = typeof step.url === "string" ? step.url : "";
-    const href = /^https?:\/\//i.test(rawUrl) ? rawUrl : "";
-    let displayUrl = rawUrl;
+    let displayUrl = step.url;
     try { displayUrl = new URL(step.url).hostname; } catch { }
     return (
       <div className="activity-step-row">
         <span className="activity-step-icon"><Globe size={12} /></span>
-        <span>
-          Reading:{" "}
-          {href ? (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{displayUrl}</a>
-          ) : (
-            <span className="text-foreground/80">{displayUrl || "page"}</span>
-          )}
-        </span>
+        <span>Reading: <a href={step.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{displayUrl}</a></span>
       </div>
     );
   }
@@ -1269,3 +1160,39 @@ function ActivityStepRow({ step }) {
   return null;
 }
 
+function StreamingStatus({ phase, toolName }) {
+  const config = {
+    thinking: { icon: <Brain size={11} />, label: "Thinking" },
+    searching: { icon: <Search size={11} />, label: "Searching" },
+    reasoning: { icon: <Brain size={11} />, label: "Analyzing" },
+    tool: { icon: <Wrench size={11} />, label: toolName ? `Using ${toolName}` : "Using tool" },
+    reading: { icon: <BookOpen size={11} />, label: "Reading sources" },
+    writing: { icon: <PenLine size={11} />, label: "Writing" },
+    planning: { icon: <ClipboardList size={11} />, label: "Planning" },
+    executing: { icon: <Zap size={11} />, label: "Executing" },
+  };
+  const { icon, label } = config[phase] || config.thinking;
+
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-border bg-foreground/5 px-3 py-1.5 text-[12px] font-medium text-muted-foreground">
+      <span className="flex items-center gap-1">
+        <span className="thinking-dot w-1 h-1 rounded-full bg-muted-foreground/80" style={{ animationDelay: "0ms" }} />
+        <span className="thinking-dot w-1 h-1 rounded-full bg-muted-foreground/80" style={{ animationDelay: "140ms" }} />
+        <span className="thinking-dot w-1 h-1 rounded-full bg-muted-foreground/80" style={{ animationDelay: "280ms" }} />
+      </span>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={label}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          className="inline-flex items-center gap-1.5"
+        >
+          <span className="flex items-center">{icon}</span>
+          {label}…
+        </motion.span>
+      </AnimatePresence>
+    </div>
+  );
+}
