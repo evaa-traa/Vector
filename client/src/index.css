@@ -141,6 +141,34 @@ button:active:not(:disabled),
   contain-intrinsic-size: auto 120px;
 }
 
+/* Scroll-to-bottom floating action button */
+.scroll-to-bottom-fab {
+  position: absolute;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(50, 50, 50, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  transition: background 150ms ease, box-shadow 150ms ease;
+}
+
+.scroll-to-bottom-fab:hover {
+  background: rgba(60, 60, 60, 0.95);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
 /* GPU-accelerated sidebar transition */
 aside {
   will-change: transform;
@@ -264,6 +292,13 @@ aside {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover,
 .custom-scrollbar.scrolling::-webkit-scrollbar-thumb:hover {
   background-color: var(--scrollbar-thumb-hover);
+}
+
+/* GPU-accelerated scroll container */
+.custom-scrollbar {
+  will-change: scroll-position;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
 }
 
 /* Markdown Content Styling */
@@ -970,4 +1005,18 @@ aside {
 /* Icon colors in sidebar */
 .light .text-\[\#22D3EE\] {
   color: #0891B2 !important;
+}
+
+/* Scroll-to-bottom FAB in light mode */
+.light .scroll-to-bottom-fab {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.6);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+}
+
+.light .scroll-to-bottom-fab:hover {
+  background: rgba(255, 255, 255, 1);
+  color: rgba(0, 0, 0, 0.85);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 }

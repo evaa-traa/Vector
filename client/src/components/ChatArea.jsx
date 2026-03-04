@@ -28,7 +28,8 @@ import {
   PenLine,
   ClipboardList,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  ArrowDown
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -463,8 +464,27 @@ export default function ChatArea({
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const userScrolledRef = useRef(false);
-  const lastScrollTopRef = useRef(0);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
+  // Helper: check if scroll container is at the bottom
+  const isAtBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }, []);
+
+  // Helper: scroll to bottom immediately
+  const scrollToBottom = useCallback((smooth = false) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (smooth) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    } else {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, []);
+
+  // Scrollbar CSS class toggle on any scroll
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -474,18 +494,6 @@ export default function ChatArea({
       el.classList.add("scrolling");
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => el.classList.remove("scrolling"), 150);
-
-      // Detect if user manually scrolled up
-      const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
-      const scrolledUp = el.scrollTop < lastScrollTopRef.current;
-
-      if (scrolledUp && !isAtBottom) {
-        userScrolledRef.current = true;
-      } else if (isAtBottom) {
-        userScrolledRef.current = false;
-      }
-
-      lastScrollTopRef.current = el.scrollTop;
     };
 
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -494,6 +502,51 @@ export default function ChatArea({
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
+
+  // Detect REAL user scroll-up via wheel and touch events (these only fire on user interaction)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let touchStartY = 0;
+
+    const handleWheel = (e) => {
+      if (e.deltaY < 0) {
+        // User is scrolling UP — immediately pause auto-scroll
+        userScrolledRef.current = true;
+        setShowScrollButton(true);
+      } else if (e.deltaY > 0 && isAtBottom()) {
+        // User scrolled back down to bottom — resume auto-scroll
+        userScrolledRef.current = false;
+        setShowScrollButton(false);
+      }
+    };
+
+    const handleTouchStart = (e) => {
+      touchStartY = e.touches[0]?.clientY || 0;
+    };
+
+    const handleTouchMove = (e) => {
+      const touchY = e.touches[0]?.clientY || 0;
+      if (touchY > touchStartY) {
+        // Swiping down on screen = scrolling UP in content
+        userScrolledRef.current = true;
+        setShowScrollButton(true);
+      } else if (touchY < touchStartY && isAtBottom()) {
+        userScrolledRef.current = false;
+        setShowScrollButton(false);
+      }
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: true });
+    el.addEventListener("touchstart", handleTouchStart, { passive: true });
+    el.addEventListener("touchmove", handleTouchMove, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", handleWheel);
+      el.removeEventListener("touchstart", handleTouchStart);
+      el.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, [isAtBottom]);
 
   // Track streaming time for "Searching..." status
   const [showSearching, setShowSearching] = React.useState(false);
@@ -512,35 +565,40 @@ export default function ChatArea({
     }
   }, [isStreaming]);
 
-  // Smart auto-scroll: only scroll if user hasn't manually scrolled up
+  // Scroll to bottom when messages change (user sends a message, new response arrives)
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
+    if (!activeSession?.messages?.length) return;
+    userScrolledRef.current = false;
+    setShowScrollButton(false);
+    scrollToBottom();
+  }, [activeSession?.messages?.length, scrollToBottom]);
 
-    // Don't auto-scroll if user has scrolled up
-    if (userScrolledRef.current) return;
+  // rAF loop during streaming: keeps scroll pinned to bottom
+  useEffect(() => {
+    if (!isStreaming) {
+      // When streaming ends, do a final scroll to bottom
+      if (!userScrolledRef.current) {
+        scrollToBottom();
+      }
+      return;
+    }
 
-    // Instant scroll to bottom during streaming to prevent jarring motion
-    // Use smooth scroll only when not streaming
-    const scrollToBottom = () => {
-      el.scrollTo({
-        top: el.scrollHeight,
-        behavior: isStreaming ? 'instant' : 'smooth'
-      });
+    // Reset on streaming start
+    userScrolledRef.current = false;
+    setShowScrollButton(false);
+
+    let rafId;
+    const tick = () => {
+      if (!userScrolledRef.current) {
+        scrollToBottom();
+      }
+      rafId = requestAnimationFrame(tick);
     };
-
-    // Use requestAnimationFrame for smoother scrolling during streaming
-    const rafId = requestAnimationFrame(scrollToBottom);
+    rafId = requestAnimationFrame(tick);
 
     return () => cancelAnimationFrame(rafId);
-  }, [activeSession?.messages, isStreaming]);
+  }, [isStreaming, scrollToBottom]);
 
-  // Reset user scroll flag when new message starts
-  useEffect(() => {
-    if (isStreaming) {
-      userScrolledRef.current = false;
-    }
-  }, [isStreaming]);
 
   const isEmpty = !activeSession?.messages || activeSession.messages.length === 0;
 
@@ -632,6 +690,30 @@ export default function ChatArea({
           </div>
         )}
       </div>
+
+      {/* Scroll to bottom FAB — shown when user scrolls up during streaming */}
+      <AnimatePresence>
+        {showScrollButton && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 10 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            onClick={() => {
+              const el = scrollRef.current;
+              if (el) {
+                userScrolledRef.current = false;
+                setShowScrollButton(false);
+                el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+              }
+            }}
+            className="scroll-to-bottom-fab"
+            aria-label="Scroll to bottom"
+          >
+            <ArrowDown size={18} />
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Footer Input Area */}
       {!isEmpty && (

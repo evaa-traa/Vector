@@ -30,6 +30,8 @@ function loadLabsModel() {
 
 require("dotenv").config();
 
+const DEBUG = process.env.DEBUG === "true";
+
 const app = express();
 app.use(express.json({ limit: "2mb" }));
 app.use(morgan("tiny"));
@@ -206,12 +208,6 @@ function buildPrompt(message, mode) {
 
 /* ── Helpers for structured agent-trace parsing ── */
 
-function parseMaybeJson(val) {
-  if (val && typeof val === "object") return val;
-  if (typeof val !== "string") return null;
-  try { return JSON.parse(val); } catch { return null; }
-}
-
 function processAgentTrace(res, traceData) {
   if (!traceData || typeof traceData !== "object") return;
   const step = traceData.step;
@@ -278,8 +274,10 @@ async function streamFlowise({
     uploads: uploads.length > 0 ? uploads : undefined
   };
 
-  console.log(`[Flowise] Fetching URL: ${url}`);
-  console.log(`[Flowise] Payload:`, JSON.stringify(payload));
+  if (DEBUG) {
+    console.log(`[Flowise] Fetching URL: ${url}`);
+    console.log(`[Flowise] Payload:`, JSON.stringify(payload).slice(0, 200));
+  }
 
   const extraHeaders = getFlowiseHeaders(model);
 
@@ -302,8 +300,9 @@ async function streamFlowise({
   });
 
   const contentType = response.headers.get("content-type") || "";
-  console.log(`[Flowise] Status: ${response.status}, Content-Type: ${contentType}`);
-  console.log(`[Flowise] Headers:`, JSON.stringify(Object.fromEntries(response.headers.entries())));
+  if (DEBUG) {
+    console.log(`[Flowise] Status: ${response.status}, Content-Type: ${contentType}`);
+  }
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
@@ -318,12 +317,12 @@ async function streamFlowise({
   // If the content type is not a stream, it might be a JSON error hidden in a 200 OK 
   // or just a non-streaming response that we should handle.
   if (!contentType.includes("text/event-stream")) {
-    console.warn(`[Flowise] Warning: Expected event-stream but got ${contentType}`);
+    if (DEBUG) console.warn(`[Flowise] Warning: Expected event-stream but got ${contentType}`);
     // If it's JSON, we can try to parse it
     if (contentType.includes("application/json")) {
       const json = await response.json().catch(() => null);
       if (json) {
-        console.log(`[Flowise] Parsed JSON instead of stream:`, JSON.stringify(json).slice(0, 50));
+        if (DEBUG) console.log(`[Flowise] Parsed JSON instead of stream:`, JSON.stringify(json).slice(0, 50));
         const text = json.text || json.answer || json.output || json.message || JSON.stringify(json);
         sendEvent(res, "token", { text });
         return; // We're done
@@ -635,7 +634,7 @@ app.post("/chat", async (req, res) => {
         overrideConfig: safeSessionId ? { sessionId: safeSessionId } : undefined
       };
 
-      console.log(`[Flowise Fallback] Fetching URL: ${url}`);
+      if (DEBUG) console.log(`[Flowise Fallback] Fetching URL: ${url}`);
 
       const extraHeaders = getFlowiseHeaders(model);
       const response = await fetch(url, {
@@ -655,7 +654,7 @@ app.post("/chat", async (req, res) => {
       }
 
       const result = await response.json();
-      console.log("[Flowise Fallback] Success");
+      if (DEBUG) console.log("[Flowise Fallback] Success");
 
       const finalContent = result.text || result.answer || result.output || result.message || JSON.stringify(result);
 
