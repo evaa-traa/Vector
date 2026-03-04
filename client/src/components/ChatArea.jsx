@@ -466,14 +466,14 @@ export default function ChatArea({
   const userScrolledRef = useRef(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
 
-  // Helper: check if scroll container is at the bottom
+  // Helper: check if scroll container is at (or near) the bottom
   const isAtBottom = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return true;
     return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   }, []);
 
-  // Helper: scroll to bottom immediately
+  // Helper: scroll to bottom
   const scrollToBottom = useCallback((smooth = false) => {
     const el = scrollRef.current;
     if (!el) return;
@@ -484,69 +484,22 @@ export default function ChatArea({
     }
   }, []);
 
-  // Scrollbar CSS class toggle on any scroll
+  // Scrollbar CSS class toggle for styling
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-
     let timeoutId = null;
     const onScroll = () => {
       el.classList.add("scrolling");
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => el.classList.remove("scrolling"), 150);
     };
-
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       el.removeEventListener("scroll", onScroll);
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
-
-  // Detect REAL user scroll-up via wheel and touch events (these only fire on user interaction)
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    let touchStartY = 0;
-
-    const handleWheel = (e) => {
-      if (e.deltaY < 0) {
-        // User is scrolling UP — immediately pause auto-scroll
-        userScrolledRef.current = true;
-        setShowScrollButton(true);
-      } else if (e.deltaY > 0 && isAtBottom()) {
-        // User scrolled back down to bottom — resume auto-scroll
-        userScrolledRef.current = false;
-        setShowScrollButton(false);
-      }
-    };
-
-    const handleTouchStart = (e) => {
-      touchStartY = e.touches[0]?.clientY || 0;
-    };
-
-    const handleTouchMove = (e) => {
-      const touchY = e.touches[0]?.clientY || 0;
-      if (touchY > touchStartY) {
-        // Swiping down on screen = scrolling UP in content
-        userScrolledRef.current = true;
-        setShowScrollButton(true);
-      } else if (touchY < touchStartY && isAtBottom()) {
-        userScrolledRef.current = false;
-        setShowScrollButton(false);
-      }
-    };
-
-    el.addEventListener("wheel", handleWheel, { passive: true });
-    el.addEventListener("touchstart", handleTouchStart, { passive: true });
-    el.addEventListener("touchmove", handleTouchMove, { passive: true });
-    return () => {
-      el.removeEventListener("wheel", handleWheel);
-      el.removeEventListener("touchstart", handleTouchStart);
-      el.removeEventListener("touchmove", handleTouchMove);
-    };
-  }, [isAtBottom]);
 
   // Track streaming time for "Searching..." status
   const [showSearching, setShowSearching] = React.useState(false);
@@ -565,7 +518,7 @@ export default function ChatArea({
     }
   }, [isStreaming]);
 
-  // Scroll to bottom when messages change (user sends a message, new response arrives)
+  // Scroll to bottom when a new message is added (user send or AI reply starts)
   useEffect(() => {
     if (!activeSession?.messages?.length) return;
     userScrolledRef.current = false;
@@ -573,10 +526,15 @@ export default function ChatArea({
     scrollToBottom();
   }, [activeSession?.messages?.length, scrollToBottom]);
 
-  // rAF loop during streaming: keeps scroll pinned to bottom
+  // rAF scroll loop during streaming.
+  // Uses lastSetScrollTop to detect user interference: if actual scrollTop
+  // differs from what we set last frame, the user scrolled — stop auto-scroll.
   useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
     if (!isStreaming) {
-      // When streaming ends, do a final scroll to bottom
+      // Final scroll on streaming end (if user hasn't taken over)
       if (!userScrolledRef.current) {
         scrollToBottom();
       }
@@ -588,16 +546,42 @@ export default function ChatArea({
     setShowScrollButton(false);
 
     let rafId;
+    let lastSetScrollTop = el.scrollTop;
+
     const tick = () => {
-      if (!userScrolledRef.current) {
-        scrollToBottom();
+      if (!el) return;
+
+      if (userScrolledRef.current) {
+        // User has taken over — just keep ticking to detect return-to-bottom
+        if (isAtBottom()) {
+          userScrolledRef.current = false;
+          setShowScrollButton(false);
+        }
+        rafId = requestAnimationFrame(tick);
+        return;
       }
+
+      // Check: did something OTHER than us change the scroll position?
+      // Tolerance of 2px to allow for subpixel rounding differences.
+      if (Math.abs(el.scrollTop - lastSetScrollTop) > 2) {
+        // Scroll position changed unexpectedly → user is scrolling
+        userScrolledRef.current = true;
+        setShowScrollButton(true);
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+
+      // All clear — scroll to bottom and record what we set
+      el.scrollTop = el.scrollHeight;
+      lastSetScrollTop = el.scrollTop;
+
       rafId = requestAnimationFrame(tick);
     };
-    rafId = requestAnimationFrame(tick);
 
+    rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [isStreaming, scrollToBottom]);
+  }, [isStreaming, isAtBottom, scrollToBottom]);
+
 
 
   const isEmpty = !activeSession?.messages || activeSession.messages.length === 0;
